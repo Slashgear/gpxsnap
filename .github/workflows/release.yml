@@ -23,7 +23,7 @@ jobs:
       - run: bun run fmt:check
       - run: bun run lint
       - run: bun run typecheck
-      - run: bun test
+      - run: bun run test
 
       # Trusted publishing needs the real npm CLI (>=11.5.1) — bun publish
       # doesn't support OIDC yet (oven-sh/bun#22423), so publishing itself

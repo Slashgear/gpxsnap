@@ -6,6 +6,10 @@ tempted to reach for a library, open an issue first to discuss it.
 
 ## Development setup
 
+This is a Bun workspace: `packages/gpxsnap` is the published library,
+`apps/website` is the Astro demo site. Install once from the repo root —
+Bun hoists dependencies for both.
+
 ```bash
 git clone https://github.com/Slashgear/gpxsnap.git
 cd gpxsnap
@@ -14,41 +18,49 @@ bun install
 
 ## Before opening a PR
 
+From the repo root:
+
 ```bash
-bun test          # tests must pass
-bun run typecheck  # tsc --noEmit
-bun run lint       # oxlint
-bun run fmt:check  # oxfmt --check — run `bun run fmt` to fix
+bun test               # tests must pass (across all workspace packages)
+bun run typecheck       # tsc --noEmit, run in every package that defines it
+bun run lint            # oxlint
+bun run fmt:check       # oxfmt --check — run `bun run fmt` to fix
 ```
 
 All four run in CI on every PR; a failing one will block merge.
 
 ## Project structure
 
-- `src/png/` — the PNG codec (decode/encode/crc32). This is the part of the
-  project worth taking most seriously — see the "hard part" note in the
-  README.
-- `src/tiles.ts` — slippy-map tile math and fetching.
-- `src/line.ts`, `src/markers.ts`, `src/font.ts`, `src/attribution.ts` —
-  route rendering.
-- `src/gpx.ts` — the `gpxsnap/gpx` convenience entry point.
-- `test/fixtures/` — real tiles and sample GPX files, checked in so the
-  test suite never touches the network. `sample-ride.gpx` is a real ~1200
-  point track, anonymized (no `<wpt>`, no timestamps) — if you add another
-  real-world fixture, anonymize it the same way before committing; a raw
-  `.gpx` dropped at the repo root is gitignored by default for exactly this
-  reason.
+- `packages/gpxsnap/` — the published library.
+  - `src/png/` — the PNG codec (decode/encode/crc32). This is the part of
+    the project worth taking most seriously — see the "hard part" note in
+    its README.
+  - `src/tiles.ts` — slippy-map tile math and fetching.
+  - `src/line.ts`, `src/markers.ts`, `src/font.ts`, `src/attribution.ts` —
+    route rendering.
+  - `src/gpx.ts` — the `gpxsnap/gpx` convenience entry point.
+  - `test/fixtures/` — real tiles and sample GPX files, checked in so the
+    test suite never touches the network. `sample-ride.gpx` is a real
+    ~1200 point track, anonymized (no `<wpt>`, no timestamps) — if you add
+    another real-world fixture, anonymize it the same way before
+    committing; a raw `.gpx` dropped at the repo root is gitignored by
+    default for exactly this reason.
+- `apps/website/` — the Astro site: presents the library and hosts an
+  in-browser demo that imports `gpxsnap` directly (workspace-linked, so it
+  always demos the current local code, not the last published version).
 
 ## Tests
 
 - Prefer real fixtures over synthetic data where practical (see
-  `test/fixtures/`) — the PNG decoder in particular has already caught real
-  bugs against real OSM tiles that synthetic test data wouldn't have caught.
+  `packages/gpxsnap/test/fixtures/`) — the PNG decoder in particular has
+  already caught real bugs against real OSM tiles that synthetic test data
+  wouldn't have caught.
 - `test/render.test.ts` compares output against a checked-in golden PNG. If
   you intentionally change rendering output (line style, marker shape,
   attribution layout, etc.), regenerate it and explain why in the PR:
 
   ```bash
+  cd packages/gpxsnap
   bun -e '
   import { renderRoute } from "./src/index.ts";
   async function mockFetch() {

@@ -15,4 +15,4 @@ jobs:
       - run: bun run fmt:check
       - run: bun run lint
       - run: bun run typecheck
-      - run: bun test
+      - run: bun run test

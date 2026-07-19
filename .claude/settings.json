@@ -22,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "out=$(bun test 2>&1); if echo \"$out\" | grep -qE ' [1-9][0-9]* fail'; then jq -n --arg msg \"$out\" '{systemMessage: (\"bun test failures:\\n\" + $msg)}'; fi",
+            "command": "out=$(bun run test 2>&1); if echo \"$out\" | grep -qE ' [1-9][0-9]* fail'; then jq -n --arg msg \"$out\" '{systemMessage: (\"bun test failures:\\n\" + $msg)}'; fi",
             "statusMessage": "Running bun test...",
             "timeout": 60
           },
