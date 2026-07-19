@@ -7,6 +7,13 @@ dist
 *.tgz
 examples/output.png
 examples/output-gpx.png
+examples/output-real-ride.png
+examples/output-custom-style.png
+
+# real GPX files dropped at the repo root for local testing — never meant
+# to be committed as-is (real dates/places); anonymize into test/fixtures/
+# before adding an example, see CONTRIBUTING.md
+/*.gpx
 
 # code coverage
 coverage
