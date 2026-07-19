@@ -16,6 +16,7 @@ import type { StrokeStyle } from "./line.ts";
 import { stampAttribution } from "./attribution.ts";
 import { drawStartEndMarkers } from "./markers.ts";
 import type { MarkersStyle } from "./markers.ts";
+import { simplifyCoordinates } from "./simplify.ts";
 
 export type LineStyle = StrokeStyle;
 export type { MarkerStyle, MarkersStyle } from "./markers.ts";
@@ -27,6 +28,12 @@ export interface RenderRouteOptions {
   height: number;
   /** Minimum margin, in pixels, kept between the fitted route bbox and the canvas edge. */
   padding?: number;
+  /**
+   * Simplify the route (Ramer-Douglas-Peucker) before rendering — a point is
+   * dropped if it deviates less than this many meters from the line through
+   * its neighbors. Omit or 0 to render every point as recorded.
+   */
+  simplify?: number;
   line?: LineStyle;
   /** Start/end route markers. Defaults to on; pass false to omit them. */
   markers?: boolean | MarkersStyle;
@@ -54,8 +61,12 @@ const DEFAULT_USER_AGENT = "gpxsnap (https://github.com/Slashgear/gpxsnap)";
  * required tile-attribution stamp.
  */
 export async function renderRoute(options: RenderRouteOptions): Promise<Uint8Array> {
-  const { coordinates, width, height } = options;
+  const { width, height } = options;
   const padding = options.padding ?? 40;
+  const coordinates =
+    options.simplify && options.simplify > 0
+      ? simplifyCoordinates(options.coordinates, options.simplify)
+      : options.coordinates;
 
   const bounds = boundsOf(coordinates);
   const zoom = fitZoom(bounds, { width, height, padding });

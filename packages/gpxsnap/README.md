@@ -80,27 +80,29 @@ It extracts every `<trkpt>` in the file (flattening across multiple
 would. See `examples/gpx.ts` for a runnable example (`bun examples/gpx.ts`), or
 `examples/real-ride.ts` for the denser real-world track shown above.
 
-gpxsnap only renders — it doesn't edit GPX files. If you need to trim,
-merge, simplify, or otherwise manipulate a track before rendering it,
-[gpx.studio](https://gpx.studio/) is a great free tool for that.
+gpxsnap only renders — it doesn't edit GPX files. It can simplify a track
+for rendering (see `simplify` below), but for trimming, merging, or other
+edits before rendering, [gpx.studio](https://gpx.studio/) is a great free
+tool for that.
 
 ## API
 
 ### `renderRoute(options): Promise<Uint8Array>`
 
-| Option        | Type                      | Default                                          | Notes                                                           |
-| ------------- | ------------------------- | ------------------------------------------------ | --------------------------------------------------------------- |
-| `coordinates` | `[number, number][]`      | required                                         | `[lon, lat]` pairs                                              |
-| `width`       | `number`                  | required                                         | output PNG width in pixels                                      |
-| `height`      | `number`                  | required                                         | output PNG height in pixels                                     |
-| `padding`     | `number`                  | `40`                                             | margin kept between the fitted route bbox and canvas edge       |
-| `line`        | `LineStyle`               | see below                                        | route stroke styling                                            |
-| `markers`     | `boolean \| MarkersStyle` | `true`                                           | start/end pins; `false` to omit                                 |
-| `tileUrl`     | `string`                  | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | any `{z}`/`{x}`/`{y}` XYZ template — see below for other styles |
-| `attribution` | `boolean \| string`       | `true` (OSM text)                                | pass a string for a non-OSM tile source's required wording      |
-| `concurrency` | `number`                  | `8`                                              | max simultaneous tile fetches                                   |
-| `userAgent`   | `string`                  | `gpxsnap (https://github.com/Slashgear/gpxsnap)` | sent on every tile request                                      |
-| `fetchImpl`   | `FetchLike`               | global `fetch`                                   | injection point for tests / custom networking                   |
+| Option        | Type                      | Default                                          | Notes                                                                                                    |
+| ------------- | ------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `coordinates` | `[number, number][]`      | required                                         | `[lon, lat]` pairs                                                                                       |
+| `width`       | `number`                  | required                                         | output PNG width in pixels                                                                               |
+| `height`      | `number`                  | required                                         | output PNG height in pixels                                                                              |
+| `padding`     | `number`                  | `40`                                             | margin kept between the fitted route bbox and canvas edge                                                |
+| `simplify`    | `number`                  | `0` (off)                                        | Ramer-Douglas-Peucker tolerance in meters; drops points that deviate less than this from their neighbors |
+| `line`        | `LineStyle`               | see below                                        | route stroke styling                                                                                     |
+| `markers`     | `boolean \| MarkersStyle` | `true`                                           | start/end pins; `false` to omit                                                                          |
+| `tileUrl`     | `string`                  | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | any `{z}`/`{x}`/`{y}` XYZ template — see below for other styles                                          |
+| `attribution` | `boolean \| string`       | `true` (OSM text)                                | pass a string for a non-OSM tile source's required wording                                               |
+| `concurrency` | `number`                  | `8`                                              | max simultaneous tile fetches                                                                            |
+| `userAgent`   | `string`                  | `gpxsnap (https://github.com/Slashgear/gpxsnap)` | sent on every tile request                                                                               |
+| `fetchImpl`   | `FetchLike`               | global `fetch`                                   | injection point for tests / custom networking                                                            |
 
 ### `LineStyle` (the `line` option)
 

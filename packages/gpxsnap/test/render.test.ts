@@ -83,6 +83,25 @@ test("renderRoute honors attribution: false and markers: false", async () => {
   expect(withoutExtras).not.toEqual(withExtras);
 });
 
+test("renderRoute accepts a simplify tolerance without throwing and still fits the requested canvas", async () => {
+  const denseLine: [number, number][] = [];
+  for (let i = 0; i <= 100; i++) {
+    denseLine.push([2.35 + i * 0.0002, 48.85 + i * 0.00002]);
+  }
+
+  const png = await renderRoute({
+    coordinates: denseLine,
+    width: 300,
+    height: 200,
+    simplify: 5000, // deliberately aggressive: collapses this near-straight line hard
+    fetchImpl: mockFetch,
+  });
+
+  const decoded = await decodePng(png);
+  expect(decoded.width).toBe(300);
+  expect(decoded.height).toBe(200);
+});
+
 test("renderRoute accepts a custom attribution string", async () => {
   const png = await renderRoute({
     coordinates: BASE_COORDINATES,
