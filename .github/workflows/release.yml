@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write # required for npm OIDC trusted publishing
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      - run: bun run fmt:check
+      - run: bun run lint
+      - run: bun run typecheck
+      - run: bun test
+
+      # Trusted publishing needs the real npm CLI (>=11.5.1) — bun publish
+      # doesn't support OIDC yet (oven-sh/bun#22423), so publishing itself
+      # goes through `npm publish` even though everything else here is bun.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          package-manager-cache: false # this is a Bun project; nothing here for setup-node to cache
+      - run: npm install -g npm@latest
+
+      - name: Create Release PR or publish
+        uses: changesets/action@v1
+        with:
+          version: bun run ci:version
+          publish: bun run ci:publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
