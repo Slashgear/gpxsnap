@@ -80,6 +80,10 @@ It extracts every `<trkpt>` in the file (flattening across multiple
 would. See `examples/gpx.ts` for a runnable example (`bun examples/gpx.ts`), or
 `examples/real-ride.ts` for the denser real-world track shown above.
 
+gpxsnap only renders — it doesn't edit GPX files. If you need to trim,
+merge, simplify, or otherwise manipulate a track before rendering it,
+[gpx.studio](https://gpx.studio/) is a great free tool for that.
+
 ## API
 
 ### `renderRoute(options): Promise<Uint8Array>`
