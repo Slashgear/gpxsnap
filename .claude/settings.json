@@ -1,0 +1,38 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path' | { read -r f; case \"$f\" in *.ts|*.tsx|*.js|*.jsx|*.json|*.md) bunx oxfmt --write \"$f\" >/dev/null 2>&1 ;; esac; } || true",
+            "statusMessage": "Formatting with oxfmt..."
+          },
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path' | { read -r f; case \"$f\" in *.ts|*.tsx|*.js|*.jsx) out=$(bunx oxlint \"$f\" 2>&1); if [ -n \"$out\" ]; then jq -n --arg msg \"$out\" '{systemMessage: (\"oxlint: \" + $msg)}'; fi ;; esac; } || true",
+            "statusMessage": "Linting with oxlint..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "out=$(bun test 2>&1); if echo \"$out\" | grep -qE ' [1-9][0-9]* fail'; then jq -n --arg msg \"$out\" '{systemMessage: (\"bun test failures:\\n\" + $msg)}'; fi",
+            "statusMessage": "Running bun test...",
+            "timeout": 60
+          },
+          {
+            "type": "command",
+            "command": "out=$(bunx changeset status 2>&1); if echo \"$out\" | grep -q 'no changesets were found'; then jq -n --arg msg \"$out\" '{systemMessage: (\"changeset reminder: src/ changed but no pending changeset - run `bunx changeset` (or `bunx changeset add --empty` for non-release changes).\\n\\n\" + $msg)}'; fi",
+            "statusMessage": "Checking changesets..."
+          }
+        ]
+      }
+    ]
+  }
+}
