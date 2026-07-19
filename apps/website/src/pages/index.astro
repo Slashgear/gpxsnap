@@ -60,9 +60,38 @@ const png = await renderRoute({
 
       <section id="demo">
         <h2>Try it in your browser</h2>
-        <p>Coming up next.</p>
+        <p class="caption">
+          Runs entirely client-side — your GPX file never leaves your
+          browser. Map tiles are fetched directly from
+          <code>tile.openstreetmap.org</code>.
+        </p>
+        <form id="demo-form">
+          <label>
+            GPX file
+            <input type="file" id="gpx-file" accept=".gpx" required />
+          </label>
+          <div class="field-row">
+            <label>
+              Width
+              <input type="number" id="width" value="1000" min="200" max="2000" />
+            </label>
+            <label>
+              Height
+              <input type="number" id="height" value="700" min="200" max="2000" />
+            </label>
+            <label>
+              Line color
+              <input type="color" id="line-color" value="#e74c3c" />
+            </label>
+          </div>
+          <button type="submit" class="button">Render</button>
+        </form>
+        <p id="demo-status" role="status"></p>
+        <div id="demo-result"></div>
       </section>
     </main>
+
+    <script src="../demo.client.ts"></script>
 
     <footer>
       <p>
@@ -186,6 +215,63 @@ const png = await renderRoute({
     border-radius: 6px;
     padding: 16px 18px;
     overflow-x: auto;
+  }
+
+  #demo-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  #demo-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+
+  #demo-form input {
+    font: inherit;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--ink);
+  }
+
+  .field-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .field-row label {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  #demo-form button {
+    align-self: flex-start;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+  }
+
+  #demo-form button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+
+  #demo-status {
+    color: var(--muted);
+    min-height: 1.5em;
+  }
+
+  #demo-result img {
+    display: block;
+    margin-bottom: 12px;
   }
 
   footer {
