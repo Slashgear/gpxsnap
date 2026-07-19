@@ -1,54 +1,264 @@
-import { renderRoute } from "./index.ts";
 import type { RenderRouteOptions } from "./index.ts";
+import { renderPipeline } from "./render-pipeline.ts";
+import type { RenderTrack } from "./render-pipeline.ts";
+import { simplifyCoordinates } from "./simplify.ts";
+import type { BadgeStyle } from "./badge.ts";
+import { computeStatistics, formatStatistics } from "./statistics.ts";
+import { buildElevationProfile } from "./elevation-chart.ts";
+import type { ElevationProfileStyle } from "./elevation-chart.ts";
 
-const TRKPT_TAG = /<trkpt\b[^>]*>/g;
+const NAME_TAG = /<name>([\s\S]*?)<\/name>/;
 
-function extractAttr(tag: string, name: string): string | null {
-  const match = tag.match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`));
+function extractAttr(attrsOrTag: string, name: string): string | null {
+  const match = attrsOrTag.match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`));
   if (!match) return null;
   return match[1] ?? match[2] ?? null;
 }
 
+const XML_ENTITIES: Record<string, string> = {
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&apos;": "'",
+};
+
+function decodeXmlEntities(text: string): string {
+  return text.replace(/&(?:amp|lt|gt|quot|apos);/g, (entity) => XML_ENTITIES[entity]!);
+}
+
+function extractNameFrom(content: string): string | undefined {
+  const match = content.match(NAME_TAG);
+  return match ? decodeXmlEntities(match[1]!.trim()) : undefined;
+}
+
+interface RawElement {
+  /** Raw attribute text between the tag name and the closing `>`/`/>`. */
+  attrs: string;
+  /** Inner content between opening and closing tags; undefined if self-closing. */
+  inner: string | undefined;
+}
+
+/** Matches every top-level `<tagName ...>...</tagName>` (or self-closing) element within `content`. */
+function matchAllElements(content: string, tagName: string): RawElement[] {
+  const pattern = new RegExp(`<${tagName}\\b([^>]*?)(?:/>|>([\\s\\S]*?)<\\/${tagName}>)`, "g");
+  return Array.from(content.matchAll(pattern), (match) => ({
+    attrs: match[1] ?? "",
+    inner: match[2],
+  }));
+}
+
+function matchFirstElement(content: string, tagName: string): RawElement | null {
+  const pattern = new RegExp(`<${tagName}\\b([^>]*?)(?:/>|>([\\s\\S]*?)<\\/${tagName}>)`);
+  const match = content.match(pattern);
+  return match ? { attrs: match[1] ?? "", inner: match[2] } : null;
+}
+
+function parseLonLat(attrs: string, tagLabel: string): { lon: number; lat: number } {
+  const latStr = extractAttr(attrs, "lat");
+  const lonStr = extractAttr(attrs, "lon");
+  if (latStr === null || lonStr === null) {
+    throw new Error(`<${tagLabel}> element is missing a lat or lon attribute`);
+  }
+  const lat = Number(latStr);
+  const lon = Number(lonStr);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    throw new Error(`<${tagLabel}> has a non-numeric lat or lon attribute`);
+  }
+  return { lon, lat };
+}
+
+export interface GpxPoint {
+  lon: number;
+  lat: number;
+  elevation?: number;
+}
+
+export interface GpxTrack {
+  name?: string;
+  /** Line color from an embedded GPX Style extension (`gpx_style:color`), normalized to `#RRGGBB`. */
+  color?: string;
+  points: GpxPoint[];
+}
+
+export interface GpxWaypoint {
+  lon: number;
+  lat: number;
+  name?: string;
+}
+
+export interface GpxDocument {
+  /** The file-level name, from `<metadata><name>` — distinct from each track's own name. */
+  name?: string;
+  tracks: GpxTrack[];
+  waypoints: GpxWaypoint[];
+}
+
+function parsePoint(el: RawElement, tagLabel: string): GpxPoint {
+  const { lon, lat } = parseLonLat(el.attrs, tagLabel);
+  let elevation: number | undefined;
+  if (el.inner) {
+    const eleMatch = el.inner.match(/<ele>([\s\S]*?)<\/ele>/);
+    if (eleMatch) {
+      const ele = Number(eleMatch[1]!.trim());
+      if (Number.isFinite(ele)) elevation = ele;
+    }
+  }
+  return { lon, lat, elevation };
+}
+
+/** Extracts a `gpx_style:color`-style extension color (namespace-prefix-agnostic), normalized to `#RRGGBB`. */
+function extractTrackColor(blockContent: string): string | undefined {
+  const extensionsMatch = blockContent.match(/<extensions>([\s\S]*?)<\/extensions>/);
+  if (!extensionsMatch) return undefined;
+
+  const colorMatch = extensionsMatch[1]!.match(
+    /<(?:\w+:)?color>\s*#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\s*<\/(?:\w+:)?color>/,
+  );
+  if (!colorMatch) return undefined;
+
+  let hex = colorMatch[1]!;
+  if (hex.length === 3) {
+    hex = hex
+      .split("")
+      .map((c) => c + c)
+      .join("");
+  }
+  return `#${hex.toUpperCase()}`;
+}
+
 /**
- * Extracts [lon, lat] pairs from every <trkpt> in a GPX document, in order,
- * flattening across multiple <trkseg>/<trk> elements. This is a targeted
- * extraction, not a general XML parser: it only looks at <trkpt> opening
- * tags and their lat/lon attributes, which is all a route preview needs.
+ * Parses a GPX document into its tracks, waypoints, and names — a targeted
+ * extraction, not a general XML parser (matching this project's other GPX
+ * handling): only the elements a route preview needs.
+ *
+ * Prefers `<trk>` (recorded tracks); if a file has none at all, falls back
+ * to `<rte>` (a planned route with no recording) so route-planning exports
+ * still render. Each track/route keeps its own name, embedded
+ * `gpx_style:color` if present, and per-point elevation from `<ele>`.
+ */
+export function parseGpxDocument(gpx: string): GpxDocument {
+  const metadata = matchFirstElement(gpx, "metadata");
+  const documentName = metadata?.inner ? extractNameFrom(metadata.inner) : undefined;
+
+  const trkBlocks = matchAllElements(gpx, "trk");
+  const usingRoutes = trkBlocks.length === 0;
+  const blocks = usingRoutes ? matchAllElements(gpx, "rte") : trkBlocks;
+  const pointTag = usingRoutes ? "rtept" : "trkpt";
+
+  const tracks: GpxTrack[] = blocks.map((block) => {
+    const content = block.inner ?? "";
+    return {
+      name: extractNameFrom(content),
+      color: extractTrackColor(content),
+      points: matchAllElements(content, pointTag).map((el) => parsePoint(el, pointTag)),
+    };
+  });
+
+  const waypoints: GpxWaypoint[] = matchAllElements(gpx, "wpt").map((el) => {
+    const { lon, lat } = parseLonLat(el.attrs, "wpt");
+    return { lon, lat, name: el.inner ? extractNameFrom(el.inner) : undefined };
+  });
+
+  return { name: documentName, tracks, waypoints };
+}
+
+/**
+ * Extracts [lon, lat] pairs from every track point in a GPX document, in
+ * order, flattening across multiple tracks/segments.
  */
 export function parseGpxTrackPoints(gpx: string): [number, number][] {
-  const points: [number, number][] = [];
-
-  for (const match of gpx.matchAll(TRKPT_TAG)) {
-    const tag = match[0];
-    const latStr = extractAttr(tag, "lat");
-    const lonStr = extractAttr(tag, "lon");
-    if (latStr === null || lonStr === null) {
-      throw new Error(`<trkpt> element is missing a lat or lon attribute: ${tag}`);
-    }
-
-    const lat = Number(latStr);
-    const lon = Number(lonStr);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      throw new Error(`<trkpt> has a non-numeric lat or lon attribute: ${tag}`);
-    }
-
-    points.push([lon, lat]);
-  }
+  const document = parseGpxDocument(gpx);
+  const points: [number, number][] = document.tracks.flatMap((track) =>
+    track.points.map((p): [number, number] => [p.lon, p.lat]),
+  );
 
   if (points.length === 0) {
-    throw new Error("no <trkpt> elements found in GPX data");
+    throw new Error("no <trkpt> or <rtept> elements found in GPX data");
   }
 
   return points;
 }
 
-export type RenderGpxOptions = Omit<RenderRouteOptions, "coordinates">;
+/**
+ * The track's or file's name, if any: the first track's own name, falling
+ * back to the file-level `<metadata><name>`. Used to auto-fill `title` in
+ * `renderGpx`.
+ */
+export function extractGpxName(gpx: string): string | undefined {
+  const document = parseGpxDocument(gpx);
+  return document.tracks[0]?.name ?? document.name;
+}
 
-/** Convenience wrapper: extract track points from a GPX file's contents and render them. */
+export type RenderGpxOptions = Omit<RenderRouteOptions, "coordinates"> & {
+  /**
+   * Stamp distance (and, when at least half the points carry elevation,
+   * smoothed elevation gain/loss) as a badge in the top-right corner.
+   * GPX-only — `renderRoute` has no elevation data to compute this from.
+   */
+  stats?: boolean | BadgeStyle;
+  /**
+   * Draw a mini elevation-profile chart along the bottom of the image (a
+   * translucent strip, map still visible underneath). Needs `<ele>` data;
+   * silently omitted if a track has fewer than 2 points with elevation.
+   */
+  elevationProfile?: boolean | ElevationProfileStyle;
+};
+
+function simplifyTrack(track: GpxTrack, toleranceMeters: number): GpxTrack {
+  const tuples = track.points.map((p): [number, number, number | undefined] => [
+    p.lon,
+    p.lat,
+    p.elevation,
+  ]);
+  const simplified = simplifyCoordinates(tuples, toleranceMeters);
+  return { ...track, points: simplified.map(([lon, lat, elevation]) => ({ lon, lat, elevation })) };
+}
+
+/**
+ * Renders every track in a GPX file (each its own polyline: an explicit
+ * `line.color` applies to all of them uniformly, otherwise each keeps its
+ * own embedded `gpx_style:color` or falls back to a cycled default),
+ * plus a small dot for each `<wpt>` waypoint. Falls back to `<rte>` when
+ * there's no recorded `<trk>` at all (see `parseGpxDocument`).
+ */
 export async function renderGpx(
   gpxContents: string,
   options: RenderGpxOptions,
 ): Promise<Uint8Array> {
-  const coordinates = parseGpxTrackPoints(gpxContents);
-  return renderRoute({ ...options, coordinates });
+  const document = parseGpxDocument(gpxContents);
+  if (document.tracks.every((t) => t.points.length === 0)) {
+    throw new Error("no <trkpt> or <rtept> elements found in GPX data");
+  }
+
+  const tracks =
+    options.simplify && options.simplify > 0
+      ? document.tracks.map((t) => simplifyTrack(t, options.simplify!))
+      : document.tracks;
+
+  const title = options.title !== undefined ? options.title : (tracks[0]?.name ?? document.name);
+
+  const statsText = options.stats ? formatStatistics(computeStatistics(tracks)) : undefined;
+  const statsStyle = typeof options.stats === "object" ? options.stats : undefined;
+
+  const elevationProfilePoints = options.elevationProfile
+    ? buildElevationProfile(tracks)
+    : undefined;
+  const elevationProfileStyle =
+    typeof options.elevationProfile === "object" ? options.elevationProfile : undefined;
+
+  const renderTracks: RenderTrack[] = tracks.map((track) => ({
+    points: track.points.map((p): [number, number] => [p.lon, p.lat]),
+    color: track.color,
+  }));
+  const waypoints: [number, number][] = document.waypoints.map((w) => [w.lon, w.lat]);
+
+  return renderPipeline(renderTracks, waypoints, {
+    ...options,
+    title,
+    statsText,
+    statsStyle,
+    elevationProfilePoints,
+    elevationProfileStyle,
+  });
 }

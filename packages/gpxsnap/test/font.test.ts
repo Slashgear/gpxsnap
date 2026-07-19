@@ -27,11 +27,22 @@ test("drawText renders nothing for an all-space string", () => {
 
 test("drawText throws a clear error on an unsupported character", () => {
   const canvas = new Canvas(40, 10);
-  expect(() => drawText(canvas, "Hello 42!", 0, 0)).toThrow(/unsupported character/);
+  expect(() => drawText(canvas, "Hello @#", 0, 0)).toThrow(/unsupported character/);
 });
 
 test("drawText covers the full supported alphabet without throwing", () => {
   const canvas = new Canvas(2000, 20);
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ,.©";
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ,.©0123456789+-'()!?:";
   expect(() => drawText(canvas, alphabet, 0, 0)).not.toThrow();
+});
+
+test("drawText renders every digit without throwing and produces visible pixels", () => {
+  const canvas = new Canvas(200, 20);
+  drawText(canvas, "0123456789", 2, 2, { color: "#ffffff" });
+  expect(isBlank(canvas)).toBe(false);
+});
+
+test("drawText renders route-title-style punctuation without throwing", () => {
+  const canvas = new Canvas(200, 20);
+  expect(() => drawText(canvas, "Antoine's ride (loop)!", 2, 2)).not.toThrow();
 });

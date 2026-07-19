@@ -1,5 +1,8 @@
 export type LonLat = readonly [number, number];
 
+/** Any tuple starting with `[lon, lat, ...]` — the RDP math only ever reads the first two elements. */
+type PointLike = readonly [number, number, ...unknown[]];
+
 const METERS_PER_LAT_DEGREE = 111320;
 
 function toRadians(degrees: number): number {
@@ -16,13 +19,17 @@ function metersPerLonDegree(latitude: number): number {
  * true geodesic — plenty accurate for a route-preview tolerance measured in
  * meters over the scale of a single recorded track.
  */
-function toLocalMeters(point: LonLat, referenceLatitude: number): { x: number; y: number } {
+function toLocalMeters(point: PointLike, referenceLatitude: number): { x: number; y: number } {
   const [lon, lat] = point;
   return { x: lon * metersPerLonDegree(referenceLatitude), y: lat * METERS_PER_LAT_DEGREE };
 }
 
 /** Perpendicular distance, in meters, from `point` to the infinite line through `lineStart` and `lineEnd`. */
-function perpendicularDistanceMeters(point: LonLat, lineStart: LonLat, lineEnd: LonLat): number {
+function perpendicularDistanceMeters(
+  point: PointLike,
+  lineStart: PointLike,
+  lineEnd: PointLike,
+): number {
   const referenceLatitude = point[1];
   const p = toLocalMeters(point, referenceLatitude);
   const a = toLocalMeters(lineStart, referenceLatitude);
@@ -38,7 +45,7 @@ function perpendicularDistanceMeters(point: LonLat, lineStart: LonLat, lineEnd: 
 }
 
 function simplifySegment(
-  coordinates: readonly LonLat[],
+  coordinates: readonly PointLike[],
   start: number,
   end: number,
   toleranceMeters: number,
@@ -73,19 +80,25 @@ function simplifySegment(
  * always keeping the first/last point and any point that meaningfully
  * changes the route's shape. `toleranceMeters <= 0` or fewer than 3 points
  * returns the input unchanged (there's nothing to simplify).
+ *
+ * Generic over any tuple starting with `[lon, lat, ...]` — e.g. a
+ * `[lon, lat, elevation]` triple — so callers that carry extra per-point
+ * data through simplification (elevation, for the stats/profile features)
+ * get it back on the points that survive, without a second, parallel
+ * implementation.
  */
-export function simplifyCoordinates(
-  coordinates: readonly LonLat[],
+export function simplifyCoordinates<T extends readonly [number, number, ...unknown[]]>(
+  coordinates: readonly T[],
   toleranceMeters: number,
-): LonLat[] {
-  if (toleranceMeters <= 0 || coordinates.length < 3) return coordinates.slice();
+): T[] {
+  if (toleranceMeters <= 0 || coordinates.length < 3) return coordinates.slice() as T[];
 
   const keep = new Uint8Array(coordinates.length);
   keep[0] = 1;
   keep[coordinates.length - 1] = 1;
   simplifySegment(coordinates, 0, coordinates.length - 1, toleranceMeters, keep);
 
-  const result: LonLat[] = [];
+  const result: T[] = [];
   for (let i = 0; i < coordinates.length; i++) {
     if (keep[i]) result.push(coordinates[i]!);
   }

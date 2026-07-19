@@ -1,22 +1,8 @@
-import { Canvas } from "./canvas.ts";
-import { encodePng } from "./png/encode.ts";
-import { decodePng } from "./png/decode.ts";
-import {
-  boundsOf,
-  canvasOrigin,
-  fetchTiles,
-  fitZoom,
-  projectToCanvas,
-  tilesForViewport,
-  TILE_SIZE,
-} from "./tiles.ts";
 import type { FetchLike } from "./tiles.ts";
-import { strokePolyline } from "./line.ts";
 import type { StrokeStyle } from "./line.ts";
-import { stampAttribution } from "./attribution.ts";
-import { drawStartEndMarkers } from "./markers.ts";
 import type { MarkersStyle } from "./markers.ts";
 import { simplifyCoordinates } from "./simplify.ts";
+import { renderPipeline } from "./render-pipeline.ts";
 
 export type LineStyle = StrokeStyle;
 export type { MarkerStyle, MarkersStyle } from "./markers.ts";
@@ -34,6 +20,14 @@ export interface RenderRouteOptions {
    * its neighbors. Omit or 0 to render every point as recorded.
    */
   simplify?: number;
+  /**
+   * Stamped as a badge in the top-left corner. `renderGpx` fills this in
+   * automatically from the GPX file's track/metadata name unless you set it
+   * explicitly (pass `false` to suppress even an auto-detected name).
+   * Goes through the same bitmap font as everything else — see the README
+   * for the supported character set.
+   */
+  title?: string | false;
   line?: LineStyle;
   /** Start/end route markers. Defaults to on; pass false to omit them. */
   markers?: boolean | MarkersStyle;
@@ -52,58 +46,18 @@ export interface RenderRouteOptions {
   fetchImpl?: FetchLike;
 }
 
-const DEFAULT_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
-const DEFAULT_USER_AGENT = "gpxsnap (https://github.com/Slashgear/gpxsnap)";
-
 /**
  * Renders a route over slippy-map tiles to a PNG: bounds fitting, tile
  * fetch/decode/composite, route line stroking, start/end markers, and the
  * required tile-attribution stamp.
  */
 export async function renderRoute(options: RenderRouteOptions): Promise<Uint8Array> {
-  const { width, height } = options;
-  const padding = options.padding ?? 40;
   const coordinates =
     options.simplify && options.simplify > 0
       ? simplifyCoordinates(options.coordinates, options.simplify)
       : options.coordinates;
 
-  const bounds = boundsOf(coordinates);
-  const zoom = fitZoom(bounds, { width, height, padding });
-  const origin = canvasOrigin(bounds, zoom, width, height);
-  const tiles = tilesForViewport(origin, zoom, width, height);
-
-  const fetched = await fetchTiles(tiles, {
-    tileUrlTemplate: options.tileUrl ?? DEFAULT_TILE_URL,
-    concurrency: options.concurrency,
-    userAgent: options.userAgent ?? DEFAULT_USER_AGENT,
-    fetchImpl: options.fetchImpl,
-  });
-
-  const canvas = new Canvas(width, height);
-  for (const tile of tiles) {
-    const bytes = fetched.get(`${tile.z}/${tile.x}/${tile.y}`);
-    if (!bytes) continue;
-    const decoded = await decodePng(bytes);
-    const destX = Math.round(tile.x * TILE_SIZE - origin.x);
-    const destY = Math.round(tile.y * TILE_SIZE - origin.y);
-    canvas.blit(decoded, destX, destY);
-  }
-
-  const routePoints = coordinates.map(([lon, lat]) => projectToCanvas(lon, lat, zoom, origin));
-  strokePolyline(canvas, routePoints, options.line);
-
-  const markers = options.markers ?? true;
-  if (markers) {
-    drawStartEndMarkers(canvas, routePoints, typeof markers === "object" ? markers : {});
-  }
-
-  const attribution = options.attribution ?? true;
-  if (attribution) {
-    stampAttribution(canvas, { text: typeof attribution === "string" ? attribution : undefined });
-  }
-
-  return encodePng(canvas.pixels, canvas.width, canvas.height);
+  return renderPipeline([{ points: coordinates }], [], options);
 }
 
 export type { DecodedImage } from "./png/decode.ts";

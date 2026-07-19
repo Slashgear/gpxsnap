@@ -5,6 +5,12 @@ const fileInput = document.getElementById("gpx-file") as HTMLInputElement;
 const widthInput = document.getElementById("width") as HTMLInputElement;
 const heightInput = document.getElementById("height") as HTMLInputElement;
 const colorInput = document.getElementById("line-color") as HTMLInputElement;
+const titleInput = document.getElementById("title") as HTMLInputElement;
+const showTitleInput = document.getElementById("show-title") as HTMLInputElement;
+const showStatsInput = document.getElementById("show-stats") as HTMLInputElement;
+const showElevationProfileInput = document.getElementById(
+  "show-elevation-profile",
+) as HTMLInputElement;
 const statusEl = document.getElementById("demo-status")!;
 const resultEl = document.getElementById("demo-result")!;
 const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
@@ -31,6 +37,9 @@ form.addEventListener("submit", async (event) => {
       height: Number(heightInput.value),
       padding: 30,
       line: { color: colorInput.value },
+      title: showTitleInput.checked ? titleInput.value.trim() || undefined : false,
+      stats: showStatsInput.checked,
+      elevationProfile: showElevationProfileInput.checked,
     });
 
     if (lastObjectUrl) URL.revokeObjectURL(lastObjectUrl);

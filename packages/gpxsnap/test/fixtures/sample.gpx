@@ -26,4 +26,21 @@
       </trkpt>
     </trkseg>
   </trk>
+  <trk>
+    <name>Second Loop</name>
+    <extensions>
+      <gpx_style:line>
+        <gpx_style:color>00FF00</gpx_style:color>
+      </gpx_style:line>
+    </extensions>
+    <trkseg>
+      <trkpt lat="48.8900" lon="2.3600">
+        <time>2024-05-01T09:00:00Z</time>
+      </trkpt>
+      <trkpt lat="48.8950" lon="2.3650">
+        <ele>50.0</ele>
+        <time>2024-05-01T09:05:00Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
 </gpx>

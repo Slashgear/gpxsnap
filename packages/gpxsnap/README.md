@@ -75,9 +75,23 @@ const gpxContents = await Bun.file("route.gpx").text();
 const png = await renderGpx(gpxContents, { width: 1200, height: 600 });
 ```
 
-It extracts every `<trkpt>` in the file (flattening across multiple
-`<trkseg>`/`<trk>` elements) and renders them the same way `renderRoute`
-would. See `examples/gpx.ts` for a runnable example (`bun examples/gpx.ts`), or
+`renderGpx` understands more of a real GPX file than a flat coordinate list
+can express:
+
+- **Multiple `<trk>`** each render as their own polyline — no spurious line
+  connecting disconnected tracks — cycling through a small default color
+  palette, or an embedded [GPX Style extension](https://gpx.studio/)
+  `gpx_style:color` per track, unless you set `line.color` explicitly (which
+  then applies to every track uniformly).
+- **`<rte>`/`<rtept>`** (a planned route with no GPS recording) is used as a
+  fallback when a file has no `<trk>` at all.
+- **`<wpt>` waypoints** render as small dots.
+- **`title`** auto-fills from the track's or file's `<name>` unless you set
+  it explicitly (`false` to suppress even an auto-detected name).
+- **`stats`** and **`elevationProfile`** (GPX-only — see the API tables
+  below) use each point's `<ele>` elevation data, when present.
+
+See `examples/gpx.ts` for a runnable example (`bun examples/gpx.ts`), or
 `examples/real-ride.ts` for the denser real-world track shown above.
 
 gpxsnap only renders — it doesn't edit GPX files. It can simplify a track
@@ -96,6 +110,7 @@ tool for that.
 | `height`      | `number`                  | required                                         | output PNG height in pixels                                                                              |
 | `padding`     | `number`                  | `40`                                             | margin kept between the fitted route bbox and canvas edge                                                |
 | `simplify`    | `number`                  | `0` (off)                                        | Ramer-Douglas-Peucker tolerance in meters; drops points that deviate less than this from their neighbors |
+| `title`       | `string \| false`         | `undefined` (off)                                | stamped as a badge in the top-left corner; unsupported characters throw (see the font's character set)   |
 | `line`        | `LineStyle`               | see below                                        | route stroke styling                                                                                     |
 | `markers`     | `boolean \| MarkersStyle` | `true`                                           | start/end pins; `false` to omit                                                                          |
 | `tileUrl`     | `string`                  | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | any `{z}`/`{x}`/`{y}` XYZ template — see below for other styles                                          |
@@ -127,7 +142,18 @@ Each of `start` / `end` is a `MarkerStyle`:
 ### `renderGpx(gpxContents, options): Promise<Uint8Array>`
 
 Same options as `renderRoute`, minus `coordinates` (extracted from the GPX
-data for you). Exported from `gpxsnap/gpx`.
+data for you), plus `title` auto-filled from the GPX's own `<name>` (see
+above) and two GPX-only options that need per-point elevation data
+`renderRoute` doesn't have. Exported from `gpxsnap/gpx`.
+
+| Option             | Type                               | Default | Notes                                                                                                          |
+| ------------------ | ---------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
+| `stats`            | `boolean \| BadgeStyle`            | `false` | badge (top-right) with distance, and — if at least half the points have `<ele>` — smoothed elevation gain/loss |
+| `elevationProfile` | `boolean \| ElevationProfileStyle` | `false` | mini filled line chart along the bottom strip; silently omitted with fewer than 2 elevation points             |
+
+`BadgeStyle` is `{ scale?, padding?, textColor?, backgroundColor?,
+backgroundOpacity? }`. `ElevationProfileStyle` is `{ height?, lineColor?,
+fillColor?, fillOpacity?, backgroundColor?, backgroundOpacity? }`.
 
 ## Why
 
