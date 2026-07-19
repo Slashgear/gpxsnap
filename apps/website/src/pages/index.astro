@@ -13,6 +13,26 @@ const sampleSrc = `${import.meta.env.BASE_URL}sample.png`;
       content="Turn a GPX file into a map image, right in your browser. Powered by gpxsnap, a dependency-free renderer for Bun, Node, and Deno."
     />
     <title>gpxsnap — turn a GPX file into a map image</title>
+
+    <!-- OpenGraph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://gpxsnap.com/" />
+    <meta property="og:title" content="gpxsnap — turn a GPX file into a map image" />
+    <meta
+      property="og:description"
+      content="Turn a GPX file into a map image, right in your browser. Powered by gpxsnap, a dependency-free renderer for Bun, Node, and Deno."
+    />
+    <meta property="og:image" content={`${import.meta.env.BASE_URL}sample.png`} />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://gpxsnap.com/" />
+    <meta property="twitter:title" content="gpxsnap — turn a GPX file into a map image" />
+    <meta
+      property="twitter:description"
+      content="Turn a GPX file into a map image, right in your browser. Powered by gpxsnap, a dependency-free renderer for Bun, Node, and Deno."
+    />
+    <meta property="twitter:image" content={`${import.meta.env.BASE_URL}sample.png`} />
   </head>
   <body>
     <nav>
