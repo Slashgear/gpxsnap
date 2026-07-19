@@ -1,0 +1,50 @@
+{
+  "name": "gpxsnap",
+  "version": "1.0.0",
+  "description": "Dependency-free GPX route-preview PNG renderer for Bun — no native bindings anywhere in the chain",
+  "keywords": [
+    "bun",
+    "gpx",
+    "openstreetmap",
+    "png",
+    "route",
+    "static-map"
+  ],
+  "homepage": "https://github.com/Slashgear/gpxsnap#readme",
+  "bugs": {
+    "url": "https://github.com/Slashgear/gpxsnap/issues"
+  },
+  "license": "MIT",
+  "author": "Antoine Caron",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Slashgear/gpxsnap.git"
+  },
+  "files": [
+    "src"
+  ],
+  "type": "module",
+  "module": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./gpx": "./src/gpx.ts"
+  },
+  "scripts": {
+    "fmt": "oxfmt .",
+    "fmt:check": "oxfmt --check .",
+    "lint": "oxlint .",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "oxfmt": "^0.59.0",
+    "oxlint": "^1.74.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "engines": {
+    "bun": ">=1.3.0"
+  }
+}

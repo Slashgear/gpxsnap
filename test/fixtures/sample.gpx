@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="gpxsnap test fixture" xmlns="http://www.topografix.com/GPX/1/1">
+  <wpt lat="48.8606" lon="2.3376">
+    <name>Louvre</name>
+  </wpt>
+  <trk>
+    <name>Sample Paris Walk</name>
+    <trkseg>
+      <trkpt lat="48.8530" lon="2.3491">
+        <ele>35.2</ele>
+        <time>2024-05-01T08:00:00Z</time>
+      </trkpt>
+      <trkpt lat="48.8592" lon="2.3376">
+        <ele>36.0</ele>
+        <time>2024-05-01T08:05:00Z</time>
+      </trkpt>
+    </trkseg>
+    <trkseg>
+      <trkpt lat="48.8738" lon="2.2951">
+        <ele>40.1</ele>
+        <time>2024-05-01T08:20:00Z</time>
+      </trkpt>
+      <trkpt lon="2.2986" lat="48.8867">
+        <ele>42.5</ele>
+        <time>2024-05-01T08:30:00Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
