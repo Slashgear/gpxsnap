@@ -1,0 +1,47 @@
+name: E2E (cross-runtime)
+
+# gpxsnap ships raw .ts source (no build step) — this proves it's actually
+# importable and runnable by each runtime, not just that it typechecks.
+# See test/e2e/render.e2e.ts: one script, no bun:test/Bun/Deno-specific
+# globals, run unmodified under all three.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  bun:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun test/e2e/render.e2e.ts
+
+  node:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["20", "22", "24"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node-version }}
+      # Node 20 predates TypeScript type-stripping entirely (added 22.6,
+      # unflagged by default since 22.18) — this leg is *expected* to fail.
+      # It stays in the matrix to document and regression-test that exact
+      # boundary rather than silently drop support tracking for it.
+      - run: node test/e2e/render.e2e.ts
+        continue-on-error: ${{ matrix.node-version == '20' }}
+
+  deno:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno run --allow-read --allow-net test/e2e/render.e2e.ts

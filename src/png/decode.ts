@@ -1,12 +1,16 @@
 const SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
-export const enum ColorType {
-  Grayscale = 0,
-  Rgb = 2,
-  Palette = 3,
-  GrayscaleAlpha = 4,
-  Rgba = 6,
-}
+// A plain object + type alias instead of `enum` — TypeScript enums have
+// runtime semantics that Node's/Deno's type-stripping can't erase, so this
+// project avoids them everywhere in favor of "erasable syntax" only.
+export const ColorType = {
+  Grayscale: 0,
+  Rgb: 2,
+  Palette: 3,
+  GrayscaleAlpha: 4,
+  Rgba: 6,
+} as const;
+export type ColorType = (typeof ColorType)[keyof typeof ColorType];
 
 export interface DecodedImage {
   width: number;
