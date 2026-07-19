@@ -38,6 +38,12 @@ uses Bun throughout — the runtime matrix above is about what a _consumer_
 of the published package can use, not what's needed to develop gpxsnap
 itself (see [CONTRIBUTING.md](CONTRIBUTING.md), which does require Bun).
 
+Types resolve correctly for modern resolution (`bundler`, `node16`/`nodenext`)
+— verified with [`@arethetypeswrong/cli`](https://github.com/arethetypeswrong/arethetypeswrong.github.io).
+Legacy `node10`-style resolution and CommonJS `require()` are not
+supported (this package is ESM-only, matching the runtime matrix above);
+use a dynamic `import()` from CJS code if you need to.
+
 ## Usage
 
 ```ts

@@ -191,7 +191,7 @@ function toRgba(
   return out;
 }
 
-async function inflate(data: Uint8Array): Promise<Uint8Array> {
+async function inflate(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
   const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream("deflate"));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }

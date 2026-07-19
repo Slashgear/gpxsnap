@@ -25,7 +25,11 @@ function paeth(a: number, b: number, c: number): number {
 }
 
 /** Picks the lowest-entropy filter per scanline, per the PNG spec's minimum-sum-of-absolute-differences heuristic. */
-function filterScanlines(pixels: Uint8Array, width: number, height: number): Uint8Array {
+function filterScanlines(
+  pixels: Uint8Array,
+  width: number,
+  height: number,
+): Uint8Array<ArrayBuffer> {
   const stride = width * BYTES_PER_PIXEL;
   const bpp = BYTES_PER_PIXEL;
   const out = new Uint8Array((stride + 1) * height);
@@ -77,7 +81,7 @@ function filterScanlines(pixels: Uint8Array, width: number, height: number): Uin
   return out;
 }
 
-async function deflate(data: Uint8Array): Promise<Uint8Array> {
+async function deflate(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
   const stream = new Blob([data]).stream().pipeThrough(new CompressionStream("deflate"));
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
