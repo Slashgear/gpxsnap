@@ -9,8 +9,8 @@
     "fmt": "oxfmt .",
     "fmt:check": "oxfmt --check .",
     "lint": "oxlint .",
-    "typecheck": "bun run --workspaces typecheck",
-    "test": "bun run --workspaces test",
+    "typecheck": "bun run --filter '*' typecheck",
+    "test": "bun run --filter '*' test",
     "changeset": "changeset",
     "ci:version": "changeset version",
     "ci:publish": "bun run --filter './packages/*' ci:publish"

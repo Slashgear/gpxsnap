@@ -1,0 +1,199 @@
+---
+const sampleSrc = `${import.meta.env.BASE_URL}sample.png`;
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href={`${import.meta.env.BASE_URL}favicon.svg`} />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <meta
+      name="description"
+      content="gpxsnap: a dependency-free GPX route-preview PNG renderer for Bun, Node, and Deno."
+    />
+    <title>gpxsnap — GPX route previews, no native bindings</title>
+  </head>
+  <body>
+    <header class="hero">
+      <p class="eyebrow">gpxsnap</p>
+      <h1>A dependency-free GPX route-preview renderer</h1>
+      <p class="tagline">
+        GPX tracks (or plain coordinates) in, a static map PNG out — no
+        <code>sharp</code>, no <code>libvips</code>, no native bindings
+        anywhere in the chain. Runs in Bun, Node (≥22.18), Deno, and — see
+        below — your browser.
+      </p>
+      <div class="cta">
+        <a class="button" href="#demo">Try it in your browser</a>
+        <a class="button secondary" href="https://github.com/Slashgear/gpxsnap">GitHub</a>
+        <a class="button secondary" href="https://www.npmjs.com/package/gpxsnap">npm</a>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <img
+          src={sampleSrc}
+          alt="A real ~1200-point GPS track rendered near Lyon, France, hugging real roads"
+          width="900"
+          height="675"
+        />
+        <p class="caption">
+          A real recorded ride, rendered by gpxsnap — dense GPS data already
+          hugs the road network with a plain polyline stroke, no map-matching
+          required.
+        </p>
+      </section>
+
+      <section>
+        <h2>Install</h2>
+        <pre><code>bun add gpxsnap</code></pre>
+        <pre><code>{`import { renderRoute } from "gpxsnap";
+
+const png = await renderRoute({
+  coordinates: [[2.3522, 48.8566], [2.295, 48.8738], [2.2986, 48.8867]],
+  width: 1200,
+  height: 600,
+});`}</code></pre>
+      </section>
+
+      <section id="demo">
+        <h2>Try it in your browser</h2>
+        <p>Coming up next.</p>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        MIT licensed. <a href="https://github.com/Slashgear/gpxsnap">Source on GitHub</a>.
+      </p>
+    </footer>
+  </body>
+</html>
+
+<style>
+  :root {
+    color-scheme: light dark;
+    --ink: light-dark(#20281f, #e7ecdd);
+    --muted: light-dark(#5b6456, #9caa8f);
+    --bg: light-dark(#eef1e9, #141c13);
+    --surface: light-dark(#e2e7da, #1e2a1b);
+    --border: light-dark(#c7ceb9, #2e3d29);
+    --accent: light-dark(#b8792b, #d99b4c);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  :global(html, body) {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family:
+      -apple-system,
+      "Segoe UI",
+      Roboto,
+      sans-serif;
+    line-height: 1.6;
+  }
+
+  .hero {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 64px 24px 32px;
+    text-align: center;
+  }
+
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", monospace;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 12px;
+  }
+
+  h1 {
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    margin: 0 0 16px;
+  }
+
+  .tagline {
+    color: var(--muted);
+    font-size: 1.05rem;
+  }
+
+  code {
+    font-family: ui-monospace, "SF Mono", monospace;
+  }
+
+  .cta {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 24px;
+  }
+
+  .button {
+    display: inline-block;
+    padding: 10px 18px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .button.secondary {
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--border);
+  }
+
+  main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px 64px;
+  }
+
+  main section {
+    padding: 32px 0;
+    border-top: 1px solid var(--border);
+  }
+
+  main section:first-child {
+    border-top: none;
+  }
+
+  img {
+    max-width: 100%;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+
+  .caption {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  pre {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 18px;
+    overflow-x: auto;
+  }
+
+  footer {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+</style>
