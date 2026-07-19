@@ -45,8 +45,7 @@
     "test": "bun test",
     "test:e2e:bun": "bun test/e2e/render.e2e.ts",
     "test:e2e:node": "node test/e2e/render.e2e.ts",
-    "test:e2e:deno": "deno run --allow-read --allow-net test/e2e/render.e2e.ts",
-    "ci:publish": "npm publish"
+    "test:e2e:deno": "deno run --allow-read --allow-net test/e2e/render.e2e.ts"
   },
   "peerDependencies": {
     "typescript": ">=5.0.0"

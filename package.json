@@ -13,7 +13,7 @@
     "test": "bun run --filter '*' test",
     "changeset": "changeset",
     "ci:version": "changeset version",
-    "ci:publish": "bun run --filter './packages/*' ci:publish"
+    "ci:publish": "changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.31.1",

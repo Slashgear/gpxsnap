@@ -26,8 +26,12 @@ jobs:
       - run: bun run test
 
       # Trusted publishing needs the real npm CLI (>=11.5.1) — bun publish
-      # doesn't support OIDC yet (oven-sh/bun#22423), so publishing itself
-      # goes through `npm publish` even though everything else here is bun.
+      # doesn't support OIDC yet (oven-sh/bun#22423). `changeset publish`
+      # (our ci:publish script) always shells out to the real npm binary
+      # for anything but pnpm (verified in @changesets/cli's source), which
+      # is also what gives us git tags + GitHub Releases per package —
+      # calling `npm publish` directly ourselves, as an earlier version of
+      # this workflow did, skipped that tagging step entirely.
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
