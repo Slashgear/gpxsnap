@@ -1,0 +1,40 @@
+name: Bug report
+description: Something isn't working as expected
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, including what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: >
+        Minimal code to reproduce the issue. If it's rendering-related,
+        include the coordinates/GPX and options you passed to
+        `renderRoute`/`renderGpx`. If it's decode-related, attach or link the
+        offending PNG/tile if you're able to share it.
+      render: ts
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: gpxsnap version
+      placeholder: e.g. 1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: bun-version
+    attributes:
+      label: Bun version
+      placeholder: output of `bun --version`
+    validations:
+      required: true

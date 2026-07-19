@@ -1,0 +1,31 @@
+name: Feature request
+description: Suggest an addition or change to gpxsnap
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: What are you trying to do that gpxsnap doesn't support today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: >
+        What would the API look like? Note that this project deliberately
+        stays dependency-free and native-binding-free — proposals that
+        require either are unlikely to be accepted as-is, but the underlying
+        problem is still worth discussing.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any workarounds you're using today, or other libraries you compared against.
+    validations:
+      required: false
