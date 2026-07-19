@@ -2,7 +2,7 @@
 
 The [gpxsnap](https://github.com/Slashgear/gpxsnap) landing page and
 in-browser demo, built with [Astro](https://astro.build). Deployed to
-GitHub Pages at https://slashgear.github.io/gpxsnap/.
+GitHub Pages at https://gpx.slashgear.dev/.
 
 This is a private, unpublished workspace package (see `.changeset/config.json`'s
 `ignore` list) — it's part of the monorepo but never versioned or shipped to npm.
@@ -10,6 +10,10 @@ This is a private, unpublished workspace package (see `.changeset/config.json`'s
 `gpxsnap` is a `workspace:*` dependency here, so the demo always runs
 against the current local library code, not the last published npm
 version.
+
+gpxsnap (and this demo) only render GPX tracks — they don't edit them. If
+you need to trim, merge, simplify, or otherwise manipulate a track first,
+[gpx.studio](https://gpx.studio/) is a great free tool for that.
 
 ## Commands
 
