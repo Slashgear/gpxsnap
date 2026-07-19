@@ -10,61 +10,29 @@ const sampleSrc = `${import.meta.env.BASE_URL}sample.png`;
     <meta name="generator" content={Astro.generator} />
     <meta
       name="description"
-      content="gpxsnap: a dependency-free GPX route-preview PNG renderer for Bun, Node, and Deno."
+      content="Turn a GPX file into a map image, right in your browser. Powered by gpxsnap, a dependency-free renderer for Bun, Node, and Deno."
     />
-    <title>gpxsnap — GPX route previews, no native bindings</title>
+    <title>gpxsnap — turn a GPX file into a map image</title>
   </head>
   <body>
-    <header class="hero">
-      <p class="eyebrow">gpxsnap</p>
-      <h1>A dependency-free GPX route-preview renderer</h1>
-      <p class="tagline">
-        GPX tracks (or plain coordinates) in, a static map PNG out — no
-        <code>sharp</code>, no <code>libvips</code>, no native bindings
-        anywhere in the chain. Runs in Bun, Node (≥22.18), Deno, and — see
-        below — your browser.
-      </p>
-      <div class="cta">
-        <a class="button" href="#demo">Try it in your browser</a>
-        <a class="button secondary" href="https://github.com/Slashgear/gpxsnap">GitHub</a>
-        <a class="button secondary" href="https://www.npmjs.com/package/gpxsnap">npm</a>
+    <nav>
+      <span class="brand">gpxsnap</span>
+      <div class="nav-links">
+        <a href="https://github.com/Slashgear/gpxsnap">GitHub</a>
+        <a href="https://www.npmjs.com/package/gpxsnap">npm</a>
       </div>
+    </nav>
+
+    <header class="hero">
+      <h1>Turn a GPX file into a map image</h1>
+      <p class="tagline">
+        Upload a route below and get a PNG back — rendered entirely in your
+        browser. Nothing is uploaded to a server.
+      </p>
     </header>
 
     <main>
-      <section>
-        <img
-          src={sampleSrc}
-          alt="A real ~1200-point GPS track rendered near Lyon, France, hugging real roads"
-          width="900"
-          height="675"
-        />
-        <p class="caption">
-          A real recorded ride, rendered by gpxsnap — dense GPS data already
-          hugs the road network with a plain polyline stroke, no map-matching
-          required.
-        </p>
-      </section>
-
-      <section>
-        <h2>Install</h2>
-        <pre><code>bun add gpxsnap</code></pre>
-        <pre><code>{`import { renderRoute } from "gpxsnap";
-
-const png = await renderRoute({
-  coordinates: [[2.3522, 48.8566], [2.295, 48.8738], [2.2986, 48.8867]],
-  width: 1200,
-  height: 600,
-});`}</code></pre>
-      </section>
-
-      <section id="demo">
-        <h2>Try it in your browser</h2>
-        <p class="caption">
-          Runs entirely client-side — your GPX file never leaves your
-          browser. Map tiles are fetched directly from
-          <code>tile.openstreetmap.org</code>.
-        </p>
+      <section id="demo" class="card">
         <form id="demo-form">
           <label>
             GPX file
@@ -88,6 +56,51 @@ const png = await renderRoute({
         </form>
         <p id="demo-status" role="status"></p>
         <div id="demo-result"></div>
+        <p class="caption">
+          Map tiles are fetched directly from <code>tile.openstreetmap.org</code>
+          — no proxy, no backend.
+        </p>
+      </section>
+
+      <section class="about">
+        <p class="eyebrow">Powered by</p>
+        <h2>gpxsnap</h2>
+        <p class="tagline">
+          A dependency-free GPX route-preview renderer — no <code>sharp</code>,
+          no <code>libvips</code>, no native bindings anywhere in the chain.
+          The same library behind the demo above runs in Bun, Node (≥22.18),
+          and Deno too.
+        </p>
+
+        <figure>
+          <img
+            src={sampleSrc}
+            alt="A real ~1200-point GPS track rendered near Lyon, France, hugging real roads"
+            width="900"
+            height="675"
+            loading="lazy"
+          />
+          <figcaption class="caption">
+            A real recorded ride, rendered by gpxsnap — dense GPS data
+            already hugs the road network with a plain polyline stroke, no
+            map-matching required.
+          </figcaption>
+        </figure>
+
+        <h3>Install</h3>
+        <pre><code>bun add gpxsnap</code></pre>
+        <pre><code>{`import { renderRoute } from "gpxsnap";
+
+const png = await renderRoute({
+  coordinates: [[2.3522, 48.8566], [2.295, 48.8738], [2.2986, 48.8867]],
+  width: 1200,
+  height: 600,
+});`}</code></pre>
+
+        <div class="cta">
+          <a class="button secondary" href="https://github.com/Slashgear/gpxsnap">GitHub</a>
+          <a class="button secondary" href="https://www.npmjs.com/package/gpxsnap">npm</a>
+        </div>
       </section>
     </main>
 
@@ -127,13 +140,50 @@ const png = await renderRoute({
       Roboto,
       sans-serif;
     line-height: 1.6;
+    /* Never let anything (a too-wide image, a long unbroken token) push the
+       viewport wider than the screen — belt-and-suspenders alongside the
+       per-element max-width rules below. */
+    overflow-x: hidden;
+  }
+
+  nav {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px 24px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .brand {
+    font-weight: 700;
+    font-family: ui-monospace, "SF Mono", monospace;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 18px;
+  }
+
+  .nav-links a {
+    color: var(--muted);
+    text-decoration: none;
+  }
+
+  .nav-links a:hover {
+    color: var(--ink);
   }
 
   .hero {
     max-width: 720px;
     margin: 0 auto;
-    padding: 64px 24px 32px;
+    padding: 32px 24px 24px;
     text-align: center;
+  }
+
+  h1 {
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    margin: 0 0 16px;
   }
 
   .eyebrow {
@@ -142,12 +192,7 @@ const png = await renderRoute({
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--accent);
-    margin: 0 0 12px;
-  }
-
-  h1 {
-    font-size: clamp(1.8rem, 4vw, 2.6rem);
-    margin: 0 0 16px;
+    margin: 0 0 8px;
   }
 
   .tagline {
@@ -162,7 +207,6 @@ const png = await renderRoute({
   .cta {
     display: flex;
     gap: 10px;
-    justify-content: center;
     flex-wrap: wrap;
     margin-top: 24px;
   }
@@ -187,19 +231,34 @@ const png = await renderRoute({
     max-width: 900px;
     margin: 0 auto;
     padding: 0 24px 64px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
   }
 
-  main section {
-    padding: 32px 0;
-    border-top: 1px solid var(--border);
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
   }
 
-  main section:first-child {
-    border-top: none;
+  .about {
+    padding-top: 8px;
   }
 
-  img {
+  figure {
+    margin: 20px 0;
+  }
+
+  /* :global() because the demo's result <img> is inserted by client-side JS
+     and never gets Astro's scoped-style attribute — without :global() this
+     rule silently wouldn't apply to it, which is exactly what caused the
+     unconstrained/overflowing image before this fix. */
+  :global(main img) {
+    display: block;
     max-width: 100%;
+    height: auto;
     border-radius: 6px;
     border: 1px solid var(--border);
   }
@@ -207,13 +266,15 @@ const png = await renderRoute({
   .caption {
     color: var(--muted);
     font-size: 0.9rem;
+    margin: 8px 0 0;
   }
 
   pre {
-    background: var(--surface);
+    background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 6px;
     padding: 16px 18px;
+    max-width: 100%;
     overflow-x: auto;
   }
 
@@ -221,7 +282,6 @@ const png = await renderRoute({
     display: flex;
     flex-direction: column;
     gap: 16px;
-    margin-top: 16px;
   }
 
   #demo-form label {
@@ -237,7 +297,7 @@ const png = await renderRoute({
     padding: 8px 10px;
     border-radius: 6px;
     border: 1px solid var(--border);
-    background: var(--surface);
+    background: var(--bg);
     color: var(--ink);
   }
 
@@ -267,11 +327,15 @@ const png = await renderRoute({
   #demo-status {
     color: var(--muted);
     min-height: 1.5em;
+    margin-bottom: 0;
   }
 
-  #demo-result img {
-    display: block;
-    margin-bottom: 12px;
+  #demo-result {
+    margin-top: 8px;
+  }
+
+  #demo-result :global(img) {
+    margin-bottom: 8px;
   }
 
   footer {
