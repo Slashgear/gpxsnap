@@ -1,6 +1,6 @@
 {
   "name": "gpxsnap",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Dependency-free GPX route-preview PNG renderer for Bun — no native bindings anywhere in the chain",
   "keywords": [
     "bun",
