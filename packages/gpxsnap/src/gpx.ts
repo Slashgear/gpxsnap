@@ -39,19 +39,65 @@ interface RawElement {
   inner: string | undefined;
 }
 
+const WORD_CHAR = /[A-Za-z0-9_]/;
+
+/**
+ * Scans `content` for top-level `<tagName ...>...</tagName>` (or
+ * self-closing `<tagName .../>`) elements using plain forward `indexOf`
+ * search rather than a `[\s\S]*?`-style regex.
+ *
+ * A lazy-wildcard regex re-scans the remaining input from every candidate
+ * tag-open position, which is quadratic when a closing tag (or even a bare
+ * `>`) never appears — e.g. `"<trk>".repeat(200_000)` previously took
+ * multiple seconds. `indexOf` calls here always start from a
+ * monotonically-advancing cursor, so total work stays linear in
+ * `content.length` regardless of malformed input.
+ */
+function* scanElements(content: string, tagName: string): Generator<RawElement> {
+  const openTag = `<${tagName}`;
+  const closeTag = `</${tagName}>`;
+  let pos = 0;
+
+  while (pos < content.length) {
+    const start = content.indexOf(openTag, pos);
+    if (start === -1) return;
+
+    const afterName = start + openTag.length;
+    const boundaryChar = content[afterName];
+    if (boundaryChar !== undefined && WORD_CHAR.test(boundaryChar)) {
+      // e.g. found "<trk" inside "<trkpt" while scanning for "trk" — not a real match.
+      pos = start + 1;
+      continue;
+    }
+
+    const tagEnd = content.indexOf(">", afterName);
+    if (tagEnd === -1) return; // no `>` anywhere from here on — nothing further can close either.
+
+    const selfClosing = content[tagEnd - 1] === "/";
+    const attrs = content.slice(afterName, selfClosing ? tagEnd - 1 : tagEnd);
+
+    if (selfClosing) {
+      yield { attrs, inner: undefined };
+      pos = tagEnd + 1;
+      continue;
+    }
+
+    const closeStart = content.indexOf(closeTag, tagEnd + 1);
+    if (closeStart === -1) return; // no closing tag anywhere from here on either.
+
+    yield { attrs, inner: content.slice(tagEnd + 1, closeStart) };
+    pos = closeStart + closeTag.length;
+  }
+}
+
 /** Matches every top-level `<tagName ...>...</tagName>` (or self-closing) element within `content`. */
 function matchAllElements(content: string, tagName: string): RawElement[] {
-  const pattern = new RegExp(`<${tagName}\\b([^>]*?)(?:/>|>([\\s\\S]*?)<\\/${tagName}>)`, "g");
-  return Array.from(content.matchAll(pattern), (match) => ({
-    attrs: match[1] ?? "",
-    inner: match[2],
-  }));
+  return Array.from(scanElements(content, tagName));
 }
 
 function matchFirstElement(content: string, tagName: string): RawElement | null {
-  const pattern = new RegExp(`<${tagName}\\b([^>]*?)(?:/>|>([\\s\\S]*?)<\\/${tagName}>)`);
-  const match = content.match(pattern);
-  return match ? { attrs: match[1] ?? "", inner: match[2] } : null;
+  for (const el of scanElements(content, tagName)) return el;
+  return null;
 }
 
 function parseLonLat(attrs: string, tagLabel: string): { lon: number; lat: number } {

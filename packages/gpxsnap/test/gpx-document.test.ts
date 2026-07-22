@@ -99,6 +99,22 @@ test("parseGpxDocument returns empty tracks/waypoints for a document with neithe
   expect(doc.name).toBe("Empty");
 });
 
+test("parseGpxDocument stays fast on malformed input with no closing tags (algorithmic-complexity DoS regression)", () => {
+  // A lazy-wildcard regex re-scans the remaining input from every candidate
+  // tag-open position, which is quadratic when a closing tag never appears.
+  // 200k repeats of an unclosed <trk> used to take multiple seconds; it
+  // should now stay comfortably linear.
+  const unclosed = "<trk>".repeat(200_000);
+  const noTagEnd = "<trk ".repeat(200_000);
+
+  const start = performance.now();
+  parseGpxDocument(unclosed);
+  parseGpxDocument(noTagEnd);
+  const elapsedMs = performance.now() - start;
+
+  expect(elapsedMs).toBeLessThan(1000);
+});
+
 test("parseGpxDocument handles the real multi-track fixture: two tracks, one with an embedded color and a point missing <ele>", async () => {
   const gpx = await Bun.file("test/fixtures/sample.gpx").text();
   const doc = parseGpxDocument(gpx);

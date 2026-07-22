@@ -155,6 +155,40 @@ above) and two GPX-only options that need per-point elevation data
 backgroundOpacity? }`. `ElevationProfileStyle` is `{ height?, lineColor?,
 fillColor?, fillOpacity?, backgroundColor?, backgroundOpacity? }`.
 
+### GPX parsing, without rendering
+
+`gpxsnap/gpx` also exports the parsing step on its own, for callers that want
+track/waypoint data rather than (or in addition to) a rendered PNG:
+
+```ts
+import { parseGpxDocument, parseGpxTrackPoints, extractGpxName } from "gpxsnap/gpx";
+
+const gpxContents = await Bun.file("route.gpx").text();
+
+parseGpxDocument(gpxContents); // full structure: tracks, waypoints, names, colors, elevation
+parseGpxTrackPoints(gpxContents); // just [lon, lat][], flattened across tracks — what renderGpx feeds to renderRoute
+extractGpxName(gpxContents); // the same name renderGpx auto-fills into `title`
+```
+
+| Function                   | Returns               | Notes                                                                                                                                                                 |
+| -------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `parseGpxDocument(gpx)`    | `GpxDocument`         | `{ name?, tracks: GpxTrack[], waypoints: GpxWaypoint[] }`. Each `GpxTrack` is `{ name?, color?, points: GpxPoint[] }`; each `GpxPoint` is `{ lon, lat, elevation? }`. |
+| `parseGpxTrackPoints(gpx)` | `[number, number][]`  | Flattened `[lon, lat]` pairs across every track/route. Throws if there are no `<trkpt>`/`<rtept>` elements at all.                                                    |
+| `extractGpxName(gpx)`      | `string \| undefined` | First track's own name, falling back to `<metadata><name>`.                                                                                                           |
+
+These are a targeted extraction, not a general-purpose XML parser: only the
+elements a route preview needs (`<trk>`/`<rte>`, `<trkpt>`/`<rtept>`, `<wpt>`,
+`<name>`, `<ele>`, and the `gpx_style:color` extension), matched with
+`indexOf`-based scanning kept deliberately linear in input size — including
+on malformed input (unclosed tags, missing `>`) — rather than a backtracking
+regex, so a truncated or malicious upload can't pin the CPU. External
+entities/DOCTYPE aren't processed at all (only the five predefined XML
+entities `&amp; &lt; &gt; &quot; &apos;` are decoded), so there's no XXE
+surface. Numeric `lat`/`lon` are validated with `Number.isFinite` and throw
+on garbage rather than silently producing `NaN`. If you need full XML
+fidelity (CDATA, comments, arbitrary nesting), reach for a real XML parser
+instead.
+
 ## Why
 
 [`staticmaps`](https://www.npmjs.com/package/staticmaps) works, but it pulls
