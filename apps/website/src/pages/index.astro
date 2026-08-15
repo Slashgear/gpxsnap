@@ -72,6 +72,14 @@ const sampleSrc = `${import.meta.env.BASE_URL}sample.png`;
               <input type="color" id="line-color" value="#e74c3c" />
             </label>
             <label>
+              Basemap
+              <select id="tile-style">
+                <option value="osm">OpenStreetMap (default)</option>
+                <option value="opentopomap">OpenTopoMap (topographic)</option>
+                <option value="cyclosm">CyclOSM (cycling)</option>
+              </select>
+            </label>
+            <label>
               Resolution
               <select id="pixel-ratio">
                 <option value="1">1x</option>
@@ -135,14 +143,13 @@ const sampleSrc = `${import.meta.env.BASE_URL}sample.png`;
         <p id="demo-status" role="status"></p>
         <div id="demo-result"></div>
         <p class="caption">
-          Map tiles are fetched directly from <code>tile.openstreetmap.org</code>
-          — no proxy, no backend. That source has no retina tiles, so above 1x
-          the route line, markers, and text render crisply at full resolution
-          while the basemap itself is upscaled. OpenStreetMap's
-          <a href="https://operations.osmfoundation.org/policies/tiles/">usage policy</a>
-          requires attribution on every image using their tiles — only turn it
-          off if you're previewing locally or pointing at a source that doesn't
-          require it.
+          Map tiles are fetched directly from the chosen basemap's own
+          servers (OpenStreetMap, OpenTopoMap, or CyclOSM — all volunteer-run,
+          no API key needed) — no proxy, no backend. None of them have
+          retina tiles, so above 1x the route line, markers, and text render
+          crisply at full resolution while the basemap itself is upscaled.
+          Each requires attribution on every image using their tiles — only
+          turn it off if you're previewing locally.
         </p>
       </section>
 
