@@ -6,7 +6,7 @@ import { simplifyCoordinates } from "./simplify.ts";
 import { renderPipeline } from "./render-pipeline.ts";
 
 export type LineStyle = StrokeStyle;
-export type { MarkerStyle, MarkersStyle } from "./markers.ts";
+export type { MarkerStyle, MarkersStyle, MarkerShape } from "./markers.ts";
 export type { DistanceMarkersStyle } from "./distance-markers.ts";
 
 export interface RenderRouteOptions {

@@ -91,6 +91,96 @@ export function drawDot(
   strokeSegment(canvas, center, center, radius, parseColor(color), opacity);
 }
 
+export type MarkerShape = "circle" | "square" | "diamond" | "triangle";
+
+/** Antialiased fill from a signed distance (negative inside, 0 at the boundary, positive outside), over a ~1px transition band. */
+function fillCoverage(signedDistance: number): number {
+  const coverage = 0.5 - signedDistance;
+  return coverage <= 0 ? 0 : coverage >= 1 ? 1 : coverage;
+}
+
+/** Signed distance from the origin to an axis-aligned square's edge (Chebyshev/L∞ distance minus the half-width). */
+function squareSdf(dx: number, dy: number, halfWidth: number): number {
+  return Math.max(Math.abs(dx), Math.abs(dy)) - halfWidth;
+}
+
+/** Signed distance from the origin to a diamond's edge (Manhattan/L1 distance minus the half-width). */
+function diamondSdf(dx: number, dy: number, halfWidth: number): number {
+  return Math.abs(dx) + Math.abs(dy) - halfWidth;
+}
+
+/**
+ * Signed distance to an upward-pointing equilateral triangle inscribed in a
+ * circle of the given radius, centered at the origin: the max of the
+ * signed distance to each of the 3 edge lines (the exact SDF of a convex
+ * polygon is the max over its half-planes; this is only a slight
+ * over-estimate right at the corners, invisible at 1px of antialiasing).
+ */
+function triangleSdf(dx: number, dy: number, radius: number): number {
+  const vertices: Point[] = [
+    { x: 0, y: -radius },
+    { x: -radius * 0.8660254, y: radius * 0.5 },
+    { x: radius * 0.8660254, y: radius * 0.5 },
+  ];
+  let maxDist = -Infinity;
+  for (let i = 0; i < 3; i++) {
+    const a = vertices[i]!;
+    const b = vertices[(i + 1) % 3]!;
+    const edgeX = b.x - a.x;
+    const edgeY = b.y - a.y;
+    const edgeLength = Math.hypot(edgeX, edgeY);
+    // Cross product of (edge) and (point - a): positive when the point is to
+    // the left of a->b. Vertices above are wound clockwise in this (y-down)
+    // canvas space, so "inside" is where every cross product is negative —
+    // negate and divide by edge length to get an outside-positive distance.
+    const cross = edgeX * (dy - a.y) - edgeY * (dx - a.x);
+    const dist = cross / edgeLength;
+    if (dist > maxDist) maxDist = dist;
+  }
+  return maxDist;
+}
+
+/**
+ * Draws a filled, antialiased marker shape centered at `center` — `"circle"`
+ * delegates to {@link drawDot}; the others are signed-distance-field fills
+ * sized to roughly the same visual weight as a circle of the same radius.
+ */
+export function drawMarkerShape(
+  canvas: Canvas,
+  center: Point,
+  radius: number,
+  shape: MarkerShape,
+  color: string,
+  opacity = 1,
+): void {
+  if (shape === "circle") {
+    drawDot(canvas, center, radius, color, opacity);
+    return;
+  }
+
+  const [r, g, b] = parseColor(color);
+  const minX = Math.max(0, Math.floor(center.x - radius - 1));
+  const maxX = Math.min(canvas.width - 1, Math.ceil(center.x + radius + 1));
+  const minY = Math.max(0, Math.floor(center.y - radius - 1));
+  const maxY = Math.min(canvas.height - 1, Math.ceil(center.y + radius + 1));
+
+  for (let py = minY; py <= maxY; py++) {
+    const cy = py + 0.5 - center.y;
+    for (let px = minX; px <= maxX; px++) {
+      const cx = px + 0.5 - center.x;
+      const sdf =
+        shape === "square"
+          ? squareSdf(cx, cy, radius)
+          : shape === "diamond"
+            ? diamondSdf(cx, cy, radius)
+            : triangleSdf(cx, cy, radius);
+      const coverage = fillCoverage(sdf);
+      if (coverage <= 0) continue;
+      canvas.blend(px, py, r!, g!, b!, coverage * opacity);
+    }
+  }
+}
+
 /**
  * Strokes a full polyline as a sequence of round-capped capsule segments.
  * `pixelRatio` scales the stroke width only — `points` are expected to
