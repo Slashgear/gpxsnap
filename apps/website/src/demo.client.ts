@@ -7,7 +7,11 @@ const heightInput = document.getElementById("height") as HTMLInputElement;
 const colorInput = document.getElementById("line-color") as HTMLInputElement;
 const pixelRatioInput = document.getElementById("pixel-ratio") as HTMLSelectElement;
 const simplifyInput = document.getElementById("simplify") as HTMLInputElement;
+const paddingInput = document.getElementById("padding") as HTMLInputElement;
+const lineWidthInput = document.getElementById("line-width") as HTMLInputElement;
+const lineOpacityInput = document.getElementById("line-opacity") as HTMLInputElement;
 const titleInput = document.getElementById("title") as HTMLInputElement;
+const attributionTextInput = document.getElementById("attribution-text") as HTMLInputElement;
 const showTitleInput = document.getElementById("show-title") as HTMLInputElement;
 const showStatsInput = document.getElementById("show-stats") as HTMLInputElement;
 const showElevationProfileInput = document.getElementById(
@@ -40,14 +44,18 @@ form.addEventListener("submit", async (event) => {
       width: Number(widthInput.value),
       height: Number(heightInput.value),
       pixelRatio: Number(pixelRatioInput.value),
-      padding: 30,
+      padding: Number(paddingInput.value),
       simplify: Number(simplifyInput.value) || undefined,
-      line: { color: colorInput.value },
+      line: {
+        color: colorInput.value,
+        width: Number(lineWidthInput.value),
+        opacity: Number(lineOpacityInput.value),
+      },
       title: showTitleInput.checked ? titleInput.value.trim() || undefined : false,
       markers: showMarkersInput.checked,
       stats: showStatsInput.checked,
       elevationProfile: showElevationProfileInput.checked,
-      attribution: showAttributionInput.checked,
+      attribution: showAttributionInput.checked ? attributionTextInput.value.trim() || true : false,
     });
 
     if (lastObjectUrl) URL.revokeObjectURL(lastObjectUrl);
