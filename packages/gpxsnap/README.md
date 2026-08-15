@@ -125,11 +125,27 @@ tool for that.
 
 ### `LineStyle` (the `line` option)
 
-| Field     | Type     | Default     |
-| --------- | -------- | ----------- |
-| `color`   | `string` | `"#E74C3C"` |
-| `width`   | `number` | `3`         |
-| `opacity` | `number` | `1`         |
+| Field      | Type                             | Default     | Notes                                                                    |
+| ---------- | -------------------------------- | ----------- | ------------------------------------------------------------------------ |
+| `color`    | `string`                         | `"#E74C3C"` | ignored when `gradient` is set                                           |
+| `width`    | `number`                         | `3`         |                                                                          |
+| `opacity`  | `number`                         | `1`         |                                                                          |
+| `gradient` | `readonly string[] \| "rainbow"` | `undefined` | overrides `color` — interpolated along the route's own length; see below |
+
+```ts
+const png = await renderRoute({
+  coordinates,
+  width: 1200,
+  height: 600,
+  line: { gradient: "rainbow" }, // or e.g. gradient: ["#2ECC71", "#F39C12", "#E74C3C"]
+});
+```
+
+The gradient is resolved per rendered segment (at that segment's position
+along the route's total on-canvas length), so it's smoothest on dense
+tracks — a real recorded ride with hundreds of points — and visibly
+"chunky" on a route with only a handful of points, since each segment
+between two points can only carry one interpolated color.
 
 ### `MarkersStyle` (the `markers` option, as `{ start?, end? }`)
 

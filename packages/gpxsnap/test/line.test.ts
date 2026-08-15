@@ -146,3 +146,67 @@ test("drawMarkerShape respects opacity", () => {
   expect(alpha).toBeGreaterThanOrEqual(127);
   expect(alpha).toBeLessThanOrEqual(128);
 });
+
+// Gradient color is resolved per-segment (at each segment's midpoint
+// fraction along total length), matching the issue's own described scope —
+// so a meaningful test needs several segments, not just one, or every pixel
+// gets the same single interpolated color.
+function densePoints(count: number, length: number): { x: number; y: number }[] {
+  return Array.from({ length: count }, (_, i) => ({ x: 10 + (i / (count - 1)) * length, y: 10 }));
+}
+
+test("gradient colors the start and end of a long polyline differently", () => {
+  const canvas = new Canvas(220, 20);
+  strokePolyline(canvas, densePoints(20, 200), {
+    color: "#000000",
+    width: 6,
+    gradient: ["#ff0000", "#0000ff"],
+  });
+
+  const start = pixelAt(canvas, 10, 10);
+  const end = pixelAt(canvas, 210, 10);
+  expect(start[0]!).toBeGreaterThan(start[2]!); // near the red end: R > B
+  expect(end[2]!).toBeGreaterThan(end[0]!); // near the blue end: B > R
+});
+
+test("gradient overrides color when both are set", () => {
+  const canvas = new Canvas(100, 20);
+  strokePolyline(canvas, densePoints(10, 80), {
+    color: "#00ff00",
+    gradient: ["#ff0000", "#0000ff"],
+    width: 6,
+  });
+  const [r, g, b] = pixelAt(canvas, 10, 10);
+  expect(g).toBe(0); // not the flat green `color` — mixing towards the gradient's stops instead
+  expect(r).toBeGreaterThan(b); // near the start: closer to the gradient's red end than its blue end
+});
+
+test("a gradient with fewer than 2 stops falls back to the flat color", () => {
+  const canvas = new Canvas(60, 20);
+  strokePolyline(canvas, densePoints(5, 40), {
+    color: "#00ff00",
+    gradient: ["#ff0000"],
+    width: 6,
+  });
+  expect(pixelAt(canvas, 10, 10)).toEqual([0, 255, 0, 255]);
+});
+
+test("the rainbow preset runs through its full palette across a long polyline", () => {
+  const canvas = new Canvas(700, 20);
+  strokePolyline(canvas, densePoints(50, 680), { gradient: "rainbow", width: 6 });
+
+  const startRed = pixelAt(canvas, 10, 10);
+  const endViolet = pixelAt(canvas, 690, 10);
+  expect(startRed[0]!).toBeGreaterThan(200); // rainbow starts red
+  expect(startRed[2]!).toBeLessThan(50);
+  expect(endViolet[2]!).toBeGreaterThan(150); // rainbow ends violet — blue channel high
+});
+
+test("a single-point polyline with a gradient uses the gradient's first stop", () => {
+  const canvas = new Canvas(20, 20);
+  strokePolyline(canvas, [{ x: 10, y: 10 }], { gradient: ["#ff0000", "#0000ff"], width: 4 });
+  const [r, g, b] = pixelAt(canvas, 10, 10);
+  expect(r).toBeGreaterThan(200);
+  expect(g).toBe(0);
+  expect(b).toBe(0);
+});

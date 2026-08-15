@@ -264,3 +264,27 @@ test("renderRoute distanceMarkers changes the output, distanceMarkers: false doe
   expect(Array.from(withMarkers)).not.toEqual(Array.from(plain));
   expect(Array.from(explicitlyOff)).toEqual(Array.from(plain));
 });
+
+test("renderRoute line.gradient changes the output vs. a flat line.color", async () => {
+  const denseLine: [number, number][] = [];
+  for (let i = 0; i <= 100; i++) {
+    denseLine.push([2.3 + i * 0.002, 48.85 + i * 0.0002]);
+  }
+
+  const flat = await renderRoute({
+    coordinates: denseLine,
+    width: 400,
+    height: 300,
+    line: { color: "#E74C3C" },
+    fetchImpl: mockFetch,
+  });
+  const gradient = await renderRoute({
+    coordinates: denseLine,
+    width: 400,
+    height: 300,
+    line: { gradient: "rainbow" },
+    fetchImpl: mockFetch,
+  });
+
+  expect(Array.from(gradient)).not.toEqual(Array.from(flat));
+});
