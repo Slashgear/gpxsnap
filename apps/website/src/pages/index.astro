@@ -362,6 +362,38 @@ const png = await renderRoute({
     overflow-x: auto;
   }
 
+  /* :global() because the "Copy as code" snippet is inserted by client-side
+     JS (demo.client.ts) and never gets Astro's scoped-style attribute — same
+     reason `:global(main img)` above exists. */
+  :global(main .snippet) {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 18px;
+    max-width: 100%;
+    overflow-x: auto;
+    margin-top: 12px;
+    font-size: 0.85rem;
+  }
+
+  :global(main #demo-result .button) {
+    display: inline-block;
+    padding: 10px 18px;
+    border-radius: 6px;
+    text-decoration: none;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 8px;
+    margin-right: 8px;
+  }
+
+  :global(main #demo-result .button.secondary) {
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--border);
+  }
+
   #demo-form {
     display: flex;
     flex-direction: column;

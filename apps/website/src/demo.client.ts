@@ -1,5 +1,55 @@
 import { renderGpx } from "gpxsnap/gpx";
 
+interface SnippetOptions {
+  width: number;
+  height: number;
+  pixelRatio: number;
+  padding: number;
+  simplify: number | undefined;
+  lineColor: string;
+  lineWidth: number;
+  lineOpacity: number;
+  title: string | false | undefined;
+  markers: boolean;
+  stats: boolean;
+  elevationProfile: boolean;
+  attribution: string | boolean;
+}
+
+/** Builds a copy-pasteable `renderGpx` call reflecting the demo form's current state. */
+function buildSnippet(options: SnippetOptions): string {
+  const lines = [
+    `width: ${options.width},`,
+    `height: ${options.height},`,
+    `pixelRatio: ${options.pixelRatio},`,
+    `padding: ${options.padding},`,
+  ];
+  if (options.simplify !== undefined) lines.push(`simplify: ${options.simplify},`);
+  lines.push(
+    `line: { color: ${JSON.stringify(options.lineColor)}, width: ${options.lineWidth}, opacity: ${options.lineOpacity} },`,
+  );
+  // `undefined` means "no explicit title" — renderGpx auto-fills it from the
+  // GPX file's own name, so the field is omitted rather than written out.
+  if (options.title !== undefined) lines.push(`title: ${JSON.stringify(options.title)},`);
+  lines.push(`markers: ${options.markers},`);
+  lines.push(`stats: ${options.stats},`);
+  lines.push(`elevationProfile: ${options.elevationProfile},`);
+  lines.push(
+    `attribution: ${typeof options.attribution === "string" ? JSON.stringify(options.attribution) : options.attribution},`,
+  );
+
+  const indented = lines.map((line) => `  ${line}`).join("\n");
+  return `import { renderGpx } from "gpxsnap/gpx";
+
+const gpxContents = await Bun.file("route.gpx").text();
+
+const png = await renderGpx(gpxContents, {
+${indented}
+});
+
+await Bun.write("route.png", png);`;
+}
+
 const form = document.getElementById("demo-form") as HTMLFormElement;
 const fileInput = document.getElementById("gpx-file") as HTMLInputElement;
 const widthInput = document.getElementById("width") as HTMLInputElement;
@@ -40,6 +90,11 @@ form.addEventListener("submit", async (event) => {
 
   try {
     const gpxContents = await file.text();
+    const title = showTitleInput.checked ? titleInput.value.trim() || undefined : false;
+    const attribution = showAttributionInput.checked
+      ? attributionTextInput.value.trim() || true
+      : false;
+
     const png = await renderGpx(gpxContents, {
       width: Number(widthInput.value),
       height: Number(heightInput.value),
@@ -51,11 +106,11 @@ form.addEventListener("submit", async (event) => {
         width: Number(lineWidthInput.value),
         opacity: Number(lineOpacityInput.value),
       },
-      title: showTitleInput.checked ? titleInput.value.trim() || undefined : false,
+      title,
       markers: showMarkersInput.checked,
       stats: showStatsInput.checked,
       elevationProfile: showElevationProfileInput.checked,
-      attribution: showAttributionInput.checked ? attributionTextInput.value.trim() || true : false,
+      attribution,
     });
 
     if (lastObjectUrl) URL.revokeObjectURL(lastObjectUrl);
@@ -73,6 +128,41 @@ form.addEventListener("submit", async (event) => {
     link.textContent = `Download PNG (${(png.length / 1024).toFixed(0)} KB)`;
     link.className = "button secondary";
     resultEl.appendChild(link);
+
+    const snippet = buildSnippet({
+      width: Number(widthInput.value),
+      height: Number(heightInput.value),
+      pixelRatio: Number(pixelRatioInput.value),
+      padding: Number(paddingInput.value),
+      simplify: Number(simplifyInput.value) || undefined,
+      lineColor: colorInput.value,
+      lineWidth: Number(lineWidthInput.value),
+      lineOpacity: Number(lineOpacityInput.value),
+      title,
+      markers: showMarkersInput.checked,
+      stats: showStatsInput.checked,
+      elevationProfile: showElevationProfileInput.checked,
+      attribution,
+    });
+    const codeBlock = document.createElement("pre");
+    codeBlock.className = "snippet";
+    const code = document.createElement("code");
+    code.textContent = snippet;
+    codeBlock.appendChild(code);
+    resultEl.appendChild(codeBlock);
+
+    const copyButton = document.createElement("button");
+    copyButton.type = "button";
+    copyButton.className = "button secondary";
+    copyButton.textContent = "Copy code";
+    copyButton.addEventListener("click", () => {
+      navigator.clipboard.writeText(snippet);
+      copyButton.textContent = "Copied!";
+      setTimeout(() => {
+        copyButton.textContent = "Copy code";
+      }, 1500);
+    });
+    resultEl.appendChild(copyButton);
 
     statusEl.textContent = "";
   } catch (error) {
