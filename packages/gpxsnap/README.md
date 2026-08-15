@@ -334,6 +334,14 @@ package: omit it (or pass `"png"`) and every runtime behaves exactly as
 before; pass `"webp"`/`"jpeg"` outside Bun and it throws immediately, before
 any tile fetching, rather than silently falling back.
 
+### Social-media presets
+
+`width`/`height` are already fully free-form — no dedicated option needed —
+but common social formats have no obvious starting point, so
+`examples/social-square.ts` (1080x1080, feed post) and
+`examples/social-story.ts` (1080x1920, Story/Reel) show sensible
+width/height/padding for each.
+
 ## License
 
 MIT
