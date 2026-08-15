@@ -1,11 +1,13 @@
 import type { FetchLike } from "./tiles.ts";
 import type { StrokeStyle } from "./line.ts";
 import type { MarkersStyle } from "./markers.ts";
+import type { DistanceMarkersStyle } from "./distance-markers.ts";
 import { simplifyCoordinates } from "./simplify.ts";
 import { renderPipeline } from "./render-pipeline.ts";
 
 export type LineStyle = StrokeStyle;
 export type { MarkerStyle, MarkersStyle } from "./markers.ts";
+export type { DistanceMarkersStyle } from "./distance-markers.ts";
 
 export interface RenderRouteOptions {
   /** Track coordinates as [lon, lat] pairs, e.g. straight from a GPX <trkpt> extraction. */
@@ -60,6 +62,14 @@ export interface RenderRouteOptions {
   format?: "png" | "webp" | "jpeg";
   /** 1–100. Only meaningful with `format: "webp" | "jpeg"`; ignored otherwise. */
   quality?: number;
+  /**
+   * Tick marks every `interval` (default `5`) `unit` (default `"km"`) of
+   * real-world route distance, perpendicular to the route at that point.
+   * Placed per track — no marker spans the gap between disconnected
+   * tracks in a `renderGpx` render. `false`/omitted to skip; no labels are
+   * drawn unless `showLabels` is set.
+   */
+  distanceMarkers?: boolean | DistanceMarkersStyle;
   /** Max concurrent tile fetches. */
   concurrency?: number;
   /** Sent as the tile request's User-Agent — OSM's tile usage policy requires one that identifies your app. */

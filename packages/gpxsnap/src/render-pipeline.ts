@@ -27,6 +27,8 @@ import { drawElevationProfile } from "./elevation-chart.ts";
 import type { ElevationProfilePoint, ElevationProfileStyle } from "./elevation-chart.ts";
 import { drawLegend } from "./legend.ts";
 import type { LegendStyle } from "./legend.ts";
+import { buildDistanceMarkers, drawDistanceMarkers, intervalToMeters } from "./distance-markers.ts";
+import type { DistanceMarkersStyle } from "./distance-markers.ts";
 
 /**
  * The shared implementation behind both `renderRoute` (one track) and
@@ -91,6 +93,14 @@ export interface RenderPipelineOptions {
    * color needs no key). `false`/omitted to always skip it.
    */
   legend?: boolean | LegendStyle;
+  /**
+   * Tick marks every `interval` (default 5) `unit` (default `"km"`) of
+   * real-world route distance, perpendicular to the route at that point.
+   * Placed per track — no marker spans the gap between disconnected
+   * tracks. `false`/omitted to skip; no labels are drawn unless
+   * `showLabels` is set.
+   */
+  distanceMarkers?: boolean | DistanceMarkersStyle;
 }
 
 const DEFAULT_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
@@ -156,11 +166,37 @@ export async function renderPipeline(
     }),
   );
 
+  const resolvedTrackColors = tracks.map(
+    (track, i) =>
+      options.line?.color ?? track.color ?? DEFAULT_TRACK_COLORS[i % DEFAULT_TRACK_COLORS.length]!,
+  );
+
   tracks.forEach((track, i) => {
-    const color =
-      options.line?.color ?? track.color ?? DEFAULT_TRACK_COLORS[i % DEFAULT_TRACK_COLORS.length];
-    strokePolyline(canvas, projectedTracks[i]!, { ...options.line, color }, pixelRatio);
+    strokePolyline(
+      canvas,
+      projectedTracks[i]!,
+      { ...options.line, color: resolvedTrackColors[i] },
+      pixelRatio,
+    );
   });
+
+  if (options.distanceMarkers) {
+    const distanceMarkersStyle =
+      typeof options.distanceMarkers === "object" ? options.distanceMarkers : {};
+    const intervalMeters = intervalToMeters(
+      distanceMarkersStyle.interval ?? 5,
+      distanceMarkersStyle.unit ?? "km",
+    );
+    tracks.forEach((track, i) => {
+      const trackMarkers = buildDistanceMarkers(track.points, projectedTracks[i]!, intervalMeters);
+      drawDistanceMarkers(
+        canvas,
+        trackMarkers,
+        { ...distanceMarkersStyle, color: distanceMarkersStyle.color ?? resolvedTrackColors[i] },
+        pixelRatio,
+      );
+    });
+  }
 
   for (const [lon, lat] of waypoints) {
     const p = projectToCanvas(lon, lat, zoom, origin);
