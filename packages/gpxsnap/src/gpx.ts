@@ -118,6 +118,8 @@ export interface GpxPoint {
   lon: number;
   lat: number;
   elevation?: number;
+  /** ISO 8601, as GPX stores it — validated parseable (`Date.parse`) but not normalized/reformatted. */
+  time?: string;
 }
 
 export interface GpxTrack {
@@ -143,14 +145,20 @@ export interface GpxDocument {
 function parsePoint(el: RawElement, tagLabel: string): GpxPoint {
   const { lon, lat } = parseLonLat(el.attrs, tagLabel);
   let elevation: number | undefined;
+  let time: string | undefined;
   if (el.inner) {
     const eleMatch = el.inner.match(/<ele>([\s\S]*?)<\/ele>/);
     if (eleMatch) {
       const ele = Number(eleMatch[1]!.trim());
       if (Number.isFinite(ele)) elevation = ele;
     }
+    const timeMatch = el.inner.match(/<time>([\s\S]*?)<\/time>/);
+    if (timeMatch) {
+      const raw = timeMatch[1]!.trim();
+      if (Number.isFinite(Date.parse(raw))) time = raw;
+    }
   }
-  return { lon, lat, elevation };
+  return { lon, lat, elevation, time };
 }
 
 /** Extracts a `gpx_style:color`-style extension color (namespace-prefix-agnostic), normalized to `#RRGGBB`. */
@@ -252,13 +260,17 @@ export type RenderGpxOptions = Omit<RenderRouteOptions, "coordinates"> & {
 };
 
 function simplifyTrack(track: GpxTrack, toleranceMeters: number): GpxTrack {
-  const tuples = track.points.map((p): [number, number, number | undefined] => [
+  const tuples = track.points.map((p): [number, number, number | undefined, string | undefined] => [
     p.lon,
     p.lat,
     p.elevation,
+    p.time,
   ]);
   const simplified = simplifyCoordinates(tuples, toleranceMeters);
-  return { ...track, points: simplified.map(([lon, lat, elevation]) => ({ lon, lat, elevation })) };
+  return {
+    ...track,
+    points: simplified.map(([lon, lat, elevation, time]) => ({ lon, lat, elevation, time })),
+  };
 }
 
 /**
