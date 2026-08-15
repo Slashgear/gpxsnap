@@ -233,3 +233,34 @@ test("renderRoute format: jpeg quality changes output size", async () => {
   });
   expect(high.length).toBeGreaterThan(low.length);
 });
+
+test("renderRoute distanceMarkers changes the output, distanceMarkers: false does not", async () => {
+  const denseLine: [number, number][] = [];
+  for (let i = 0; i <= 200; i++) {
+    denseLine.push([2.3 + i * 0.001, 48.85 + i * 0.0001]);
+  }
+
+  const plain = await renderRoute({
+    coordinates: denseLine,
+    width: 400,
+    height: 300,
+    fetchImpl: mockFetch,
+  });
+  const withMarkers = await renderRoute({
+    coordinates: denseLine,
+    width: 400,
+    height: 300,
+    distanceMarkers: { interval: 2, unit: "km" },
+    fetchImpl: mockFetch,
+  });
+  const explicitlyOff = await renderRoute({
+    coordinates: denseLine,
+    width: 400,
+    height: 300,
+    distanceMarkers: false,
+    fetchImpl: mockFetch,
+  });
+
+  expect(Array.from(withMarkers)).not.toEqual(Array.from(plain));
+  expect(Array.from(explicitlyOff)).toEqual(Array.from(plain));
+});
