@@ -79,6 +79,10 @@ const sampleSrc = `${import.meta.env.BASE_URL}sample.png`;
                 <option value="3">3x</option>
               </select>
             </label>
+            <label>
+              Simplify (meters)
+              <input type="number" id="simplify" value="0" min="0" step="1" />
+            </label>
           </div>
           <label>
             Title (optional)
@@ -100,6 +104,10 @@ const sampleSrc = `${import.meta.env.BASE_URL}sample.png`;
             <label class="checkbox-label">
               <input type="checkbox" id="show-attribution" checked />
               Tile attribution
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="show-markers" checked />
+              Start/end markers
             </label>
           </div>
           <button type="submit" class="button">Render</button>

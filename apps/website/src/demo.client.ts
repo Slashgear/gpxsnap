@@ -6,6 +6,7 @@ const widthInput = document.getElementById("width") as HTMLInputElement;
 const heightInput = document.getElementById("height") as HTMLInputElement;
 const colorInput = document.getElementById("line-color") as HTMLInputElement;
 const pixelRatioInput = document.getElementById("pixel-ratio") as HTMLSelectElement;
+const simplifyInput = document.getElementById("simplify") as HTMLInputElement;
 const titleInput = document.getElementById("title") as HTMLInputElement;
 const showTitleInput = document.getElementById("show-title") as HTMLInputElement;
 const showStatsInput = document.getElementById("show-stats") as HTMLInputElement;
@@ -13,6 +14,7 @@ const showElevationProfileInput = document.getElementById(
   "show-elevation-profile",
 ) as HTMLInputElement;
 const showAttributionInput = document.getElementById("show-attribution") as HTMLInputElement;
+const showMarkersInput = document.getElementById("show-markers") as HTMLInputElement;
 const statusEl = document.getElementById("demo-status")!;
 const resultEl = document.getElementById("demo-result")!;
 const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
@@ -39,8 +41,10 @@ form.addEventListener("submit", async (event) => {
       height: Number(heightInput.value),
       pixelRatio: Number(pixelRatioInput.value),
       padding: 30,
+      simplify: Number(simplifyInput.value) || undefined,
       line: { color: colorInput.value },
       title: showTitleInput.checked ? titleInput.value.trim() || undefined : false,
+      markers: showMarkersInput.checked,
       stats: showStatsInput.checked,
       elevationProfile: showElevationProfileInput.checked,
       attribution: showAttributionInput.checked,
