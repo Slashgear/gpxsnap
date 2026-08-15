@@ -64,10 +64,11 @@ export function drawElevationProfile(
   canvas: Canvas,
   profile: readonly ElevationProfilePoint[],
   style: ElevationProfileStyle = {},
+  pixelRatio = 1,
 ): void {
   if (profile.length < 2) return;
 
-  const height = Math.min(canvas.height, style.height ?? DEFAULT_HEIGHT);
+  const height = Math.min(canvas.height, (style.height ?? DEFAULT_HEIGHT) * pixelRatio);
   const stripY = canvas.height - height;
 
   const [bgR, bgG, bgB] = parseColor(style.backgroundColor ?? DEFAULT_BACKGROUND_COLOR);
@@ -87,8 +88,9 @@ export function drawElevationProfile(
   const distanceRange = maxDistance - minDistance || 1;
   const elevationRange = maxElevation - minElevation || 1;
 
-  const plotTop = stripY + PLOT_MARGIN;
-  const plotBottom = canvas.height - PLOT_MARGIN;
+  const plotMargin = PLOT_MARGIN * pixelRatio;
+  const plotTop = stripY + plotMargin;
+  const plotBottom = canvas.height - plotMargin;
   const plotHeight = plotBottom - plotTop || 1;
 
   const plotWidth = Math.max(1, canvas.width - (style.reservedRightMargin ?? 0));
@@ -113,9 +115,14 @@ export function drawElevationProfile(
     }
   }
 
-  strokePolyline(canvas, points, {
-    color: style.lineColor ?? DEFAULT_LINE_COLOR,
-    width: 2,
-    opacity: 1,
-  });
+  strokePolyline(
+    canvas,
+    points,
+    {
+      color: style.lineColor ?? DEFAULT_LINE_COLOR,
+      width: 2,
+      opacity: 1,
+    },
+    pixelRatio,
+  );
 }

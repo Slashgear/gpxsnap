@@ -22,9 +22,10 @@ const DEFAULT_BACKGROUND_OPACITY = 0.65;
 export function measureBadgeSize(
   text: string,
   style: BadgeStyle = {},
+  pixelRatio = 1,
 ): { width: number; height: number } {
-  const scale = style.scale ?? DEFAULT_SCALE;
-  const padding = style.padding ?? DEFAULT_PADDING;
+  const scale = (style.scale ?? DEFAULT_SCALE) * pixelRatio;
+  const padding = (style.padding ?? DEFAULT_PADDING) * pixelRatio;
   const { width: textWidth, height: textHeight } = measureText(text, scale);
   return { width: textWidth + padding * 2, height: textHeight + padding * 2 };
 }
@@ -35,10 +36,11 @@ export function drawBadge(
   text: string,
   corner: BadgeCorner,
   style: BadgeStyle = {},
+  pixelRatio = 1,
 ): void {
-  const scale = style.scale ?? DEFAULT_SCALE;
-  const padding = style.padding ?? DEFAULT_PADDING;
-  const { width: rawWidth, height: rawHeight } = measureBadgeSize(text, style);
+  const scale = (style.scale ?? DEFAULT_SCALE) * pixelRatio;
+  const padding = (style.padding ?? DEFAULT_PADDING) * pixelRatio;
+  const { width: rawWidth, height: rawHeight } = measureBadgeSize(text, style, pixelRatio);
 
   const barWidth = Math.min(canvas.width, rawWidth);
   const barHeight = Math.min(canvas.height, rawHeight);

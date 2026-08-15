@@ -71,6 +71,14 @@ const sampleSrc = `${import.meta.env.BASE_URL}sample.png`;
               Line color
               <input type="color" id="line-color" value="#e74c3c" />
             </label>
+            <label>
+              Resolution
+              <select id="pixel-ratio">
+                <option value="1">1x</option>
+                <option value="2">2x (retina)</option>
+                <option value="3">3x</option>
+              </select>
+            </label>
           </div>
           <label>
             Title (optional)
@@ -96,7 +104,9 @@ const sampleSrc = `${import.meta.env.BASE_URL}sample.png`;
         <div id="demo-result"></div>
         <p class="caption">
           Map tiles are fetched directly from <code>tile.openstreetmap.org</code>
-          — no proxy, no backend.
+          — no proxy, no backend. That source has no retina tiles, so above 1x
+          the route line, markers, and text render crisply at full resolution
+          while the basemap itself is upscaled.
         </p>
       </section>
 
@@ -330,7 +340,8 @@ const png = await renderRoute({
     color: var(--muted);
   }
 
-  #demo-form input {
+  #demo-form input,
+  #demo-form select {
     font: inherit;
     padding: 8px 10px;
     border-radius: 6px;

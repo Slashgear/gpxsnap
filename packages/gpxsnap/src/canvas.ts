@@ -63,3 +63,37 @@ export class Canvas {
     this.pixels[i + 3] = outA * 255;
   }
 }
+
+export interface PixelImage {
+  width: number;
+  height: number;
+  pixels: Uint8ClampedArray | Uint8Array;
+}
+
+/**
+ * Nearest-neighbor upscale by `factor`. Used to bring a plain (non-retina)
+ * tile image up to the physical tile size a `pixelRatio > 1` render needs,
+ * when the tile source has no dedicated `{r}` retina asset — the basemap
+ * stays blocky, but overlays (line, markers, text) still render crisply at
+ * full resolution.
+ */
+export function upscaleNearestNeighbor(src: PixelImage, factor: number): PixelImage {
+  const width = Math.round(src.width * factor);
+  const height = Math.round(src.height * factor);
+  const pixels = new Uint8ClampedArray(width * height * 4);
+
+  for (let y = 0; y < height; y++) {
+    const sy = Math.min(src.height - 1, Math.floor(y / factor));
+    for (let x = 0; x < width; x++) {
+      const sx = Math.min(src.width - 1, Math.floor(x / factor));
+      const srcI = (sy * src.width + sx) * 4;
+      const destI = (y * width + x) * 4;
+      pixels[destI] = src.pixels[srcI]!;
+      pixels[destI + 1] = src.pixels[srcI + 1]!;
+      pixels[destI + 2] = src.pixels[srcI + 2]!;
+      pixels[destI + 3] = src.pixels[srcI + 3]!;
+    }
+  }
+
+  return { width, height, pixels };
+}

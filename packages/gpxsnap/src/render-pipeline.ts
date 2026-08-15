@@ -1,4 +1,4 @@
-import { Canvas } from "./canvas.ts";
+import { Canvas, upscaleNearestNeighbor } from "./canvas.ts";
 import { decodePng } from "./png/decode.ts";
 import { encodePng } from "./png/encode.ts";
 import {
@@ -48,6 +48,18 @@ export interface RenderPipelineOptions {
   concurrency?: number;
   userAgent?: string;
   fetchImpl?: FetchLike;
+  /**
+   * Output resolution multiplier — the geographic framing stays identical to
+   * `pixelRatio: 1` (same zoom/bounds), but the canvas and every drawn
+   * element (line, markers, badges, elevation profile) render at
+   * `width * pixelRatio` x `height * pixelRatio` physical pixels, for crisp
+   * display on high-DPI screens. Also requests retina tiles: substitutes
+   * `{r}` in `tileUrl` with `@2x`/`@3x` when present in the template: a
+   * template without `{r}` (e.g. the default OSM one, which has no retina
+   * tiles) instead falls back to nearest-neighbor upscaling the standard
+   * tile — sharp overlays, blockier basemap.
+   */
+  pixelRatio?: number;
   title?: string | false;
   /** Pre-formatted stats text (see statistics.ts), stamped as a badge in the top-right corner. */
   statsText?: string;
@@ -74,7 +86,11 @@ export async function renderPipeline(
 ): Promise<Uint8Array> {
   const { width, height } = options;
   const padding = options.padding ?? 40;
+  const pixelRatio = options.pixelRatio ?? 1;
+  if (!(pixelRatio > 0)) throw new Error("pixelRatio must be a positive number");
 
+  // Framing (zoom/bounds/tiles) is computed in logical pixel space, unaffected by
+  // pixelRatio, so the same geographic area is shown regardless of output resolution.
   const allCoordinates: LonLat[] = [...tracks.flatMap((t) => t.points), ...waypoints];
   const bounds = boundsOf(allCoordinates);
   const zoom = fitZoom(bounds, { width, height, padding });
@@ -83,36 +99,49 @@ export async function renderPipeline(
 
   const fetched = await fetchTiles(tiles, {
     tileUrlTemplate: options.tileUrl ?? DEFAULT_TILE_URL,
+    pixelRatio,
     concurrency: options.concurrency,
     userAgent: options.userAgent ?? DEFAULT_USER_AGENT,
     fetchImpl: options.fetchImpl,
   });
 
-  const canvas = new Canvas(width, height);
+  const canvas = new Canvas(Math.round(width * pixelRatio), Math.round(height * pixelRatio));
+  const physicalTileSize = TILE_SIZE * pixelRatio;
   for (const tile of tiles) {
     const bytes = fetched.get(`${tile.z}/${tile.x}/${tile.y}`);
     if (!bytes) continue;
     const decoded = await decodePng(bytes);
-    const destX = Math.round(tile.x * TILE_SIZE - origin.x);
-    const destY = Math.round(tile.y * TILE_SIZE - origin.y);
-    canvas.blit(decoded, destX, destY);
+    // A genuine retina tile asset already arrives at physicalTileSize; a plain
+    // one (e.g. the default OSM source, which has no `{r}` retina tiles) gets
+    // upscaled so it still covers its full slot on the scaled-up canvas.
+    const image =
+      decoded.width === physicalTileSize
+        ? decoded
+        : upscaleNearestNeighbor(decoded, physicalTileSize / decoded.width);
+    const destX = Math.round((tile.x * TILE_SIZE - origin.x) * pixelRatio);
+    const destY = Math.round((tile.y * TILE_SIZE - origin.y) * pixelRatio);
+    canvas.blit(image, destX, destY);
   }
 
   const projectedTracks = tracks.map((track) =>
-    track.points.map(([lon, lat]) => projectToCanvas(lon, lat, zoom, origin)),
+    track.points.map(([lon, lat]) => {
+      const p = projectToCanvas(lon, lat, zoom, origin);
+      return { x: p.x * pixelRatio, y: p.y * pixelRatio };
+    }),
   );
 
   tracks.forEach((track, i) => {
     const color =
       options.line?.color ?? track.color ?? DEFAULT_TRACK_COLORS[i % DEFAULT_TRACK_COLORS.length];
-    strokePolyline(canvas, projectedTracks[i]!, { ...options.line, color });
+    strokePolyline(canvas, projectedTracks[i]!, { ...options.line, color }, pixelRatio);
   });
 
   for (const [lon, lat] of waypoints) {
+    const p = projectToCanvas(lon, lat, zoom, origin);
     drawDot(
       canvas,
-      projectToCanvas(lon, lat, zoom, origin),
-      WAYPOINT_RADIUS,
+      { x: p.x * pixelRatio, y: p.y * pixelRatio },
+      WAYPOINT_RADIUS * pixelRatio,
       WAYPOINT_COLOR,
       WAYPOINT_OPACITY,
     );
@@ -121,15 +150,20 @@ export async function renderPipeline(
   const markers = options.markers ?? true;
   if (markers) {
     const allProjected = projectedTracks.flat();
-    drawStartEndMarkers(canvas, allProjected, typeof markers === "object" ? markers : {});
+    drawStartEndMarkers(
+      canvas,
+      allProjected,
+      typeof markers === "object" ? markers : {},
+      pixelRatio,
+    );
   }
 
   if (options.title) {
-    drawBadge(canvas, options.title, "top-left");
+    drawBadge(canvas, options.title, "top-left", {}, pixelRatio);
   }
 
   if (options.statsText) {
-    drawBadge(canvas, options.statsText, "top-right", options.statsStyle);
+    drawBadge(canvas, options.statsText, "top-right", options.statsStyle, pixelRatio);
   }
 
   const attribution = options.attribution ?? true;
@@ -138,17 +172,29 @@ export async function renderPipeline(
     // Reserve room for the attribution badge (bottom-right, drawn after this)
     // so the plotted line doesn't run underneath it and get visually cut off.
     const reservedRightMargin = attribution
-      ? measureBadgeSize(typeof attribution === "string" ? attribution : DEFAULT_ATTRIBUTION_TEXT)
-          .width
+      ? measureBadgeSize(
+          typeof attribution === "string" ? attribution : DEFAULT_ATTRIBUTION_TEXT,
+          {},
+          pixelRatio,
+        ).width
       : 0;
-    drawElevationProfile(canvas, options.elevationProfilePoints, {
-      reservedRightMargin,
-      ...options.elevationProfileStyle,
-    });
+    drawElevationProfile(
+      canvas,
+      options.elevationProfilePoints,
+      {
+        reservedRightMargin,
+        ...options.elevationProfileStyle,
+      },
+      pixelRatio,
+    );
   }
 
   if (attribution) {
-    stampAttribution(canvas, { text: typeof attribution === "string" ? attribution : undefined });
+    stampAttribution(
+      canvas,
+      { text: typeof attribution === "string" ? attribution : undefined },
+      pixelRatio,
+    );
   }
 
   return encodePng(canvas.pixels, canvas.width, canvas.height);

@@ -5,6 +5,7 @@ const fileInput = document.getElementById("gpx-file") as HTMLInputElement;
 const widthInput = document.getElementById("width") as HTMLInputElement;
 const heightInput = document.getElementById("height") as HTMLInputElement;
 const colorInput = document.getElementById("line-color") as HTMLInputElement;
+const pixelRatioInput = document.getElementById("pixel-ratio") as HTMLSelectElement;
 const titleInput = document.getElementById("title") as HTMLInputElement;
 const showTitleInput = document.getElementById("show-title") as HTMLInputElement;
 const showStatsInput = document.getElementById("show-stats") as HTMLInputElement;
@@ -35,6 +36,7 @@ form.addEventListener("submit", async (event) => {
     const png = await renderGpx(gpxContents, {
       width: Number(widthInput.value),
       height: Number(heightInput.value),
+      pixelRatio: Number(pixelRatioInput.value),
       padding: 30,
       line: { color: colorInput.value },
       title: showTitleInput.checked ? titleInput.value.trim() || undefined : false,

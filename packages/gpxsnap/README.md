@@ -103,21 +103,22 @@ tool for that.
 
 ### `renderRoute(options): Promise<Uint8Array>`
 
-| Option        | Type                      | Default                                          | Notes                                                                                                    |
-| ------------- | ------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| `coordinates` | `[number, number][]`      | required                                         | `[lon, lat]` pairs                                                                                       |
-| `width`       | `number`                  | required                                         | output PNG width in pixels                                                                               |
-| `height`      | `number`                  | required                                         | output PNG height in pixels                                                                              |
-| `padding`     | `number`                  | `40`                                             | margin kept between the fitted route bbox and canvas edge                                                |
-| `simplify`    | `number`                  | `0` (off)                                        | Ramer-Douglas-Peucker tolerance in meters; drops points that deviate less than this from their neighbors |
-| `title`       | `string \| false`         | `undefined` (off)                                | stamped as a badge in the top-left corner; unsupported characters throw (see the font's character set)   |
-| `line`        | `LineStyle`               | see below                                        | route stroke styling                                                                                     |
-| `markers`     | `boolean \| MarkersStyle` | `true`                                           | start/end pins; `false` to omit                                                                          |
-| `tileUrl`     | `string`                  | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | any `{z}`/`{x}`/`{y}` XYZ template — see below for other styles                                          |
-| `attribution` | `boolean \| string`       | `true` (OSM text)                                | pass a string for a non-OSM tile source's required wording                                               |
-| `concurrency` | `number`                  | `8`                                              | max simultaneous tile fetches                                                                            |
-| `userAgent`   | `string`                  | `gpxsnap (https://github.com/Slashgear/gpxsnap)` | sent on every tile request                                                                               |
-| `fetchImpl`   | `FetchLike`               | global `fetch`                                   | injection point for tests / custom networking                                                            |
+| Option        | Type                      | Default                                          | Notes                                                                                                                                      |
+| ------------- | ------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `coordinates` | `[number, number][]`      | required                                         | `[lon, lat]` pairs                                                                                                                         |
+| `width`       | `number`                  | required                                         | output PNG width in pixels                                                                                                                 |
+| `height`      | `number`                  | required                                         | output PNG height in pixels                                                                                                                |
+| `padding`     | `number`                  | `40`                                             | margin kept between the fitted route bbox and canvas edge                                                                                  |
+| `simplify`    | `number`                  | `0` (off)                                        | Ramer-Douglas-Peucker tolerance in meters; drops points that deviate less than this from their neighbors                                   |
+| `title`       | `string \| false`         | `undefined` (off)                                | stamped as a badge in the top-left corner; unsupported characters throw (see the font's character set)                                     |
+| `line`        | `LineStyle`               | see below                                        | route stroke styling                                                                                                                       |
+| `markers`     | `boolean \| MarkersStyle` | `true`                                           | start/end pins; `false` to omit                                                                                                            |
+| `tileUrl`     | `string`                  | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | any `{z}`/`{x}`/`{y}` XYZ template — see below for other styles                                                                            |
+| `pixelRatio`  | `number`                  | `1`                                              | output resolution multiplier (e.g. `2` for retina); same framing, `width * pixelRatio` x `height * pixelRatio` physical pixels — see below |
+| `attribution` | `boolean \| string`       | `true` (OSM text)                                | pass a string for a non-OSM tile source's required wording                                                                                 |
+| `concurrency` | `number`                  | `8`                                              | max simultaneous tile fetches                                                                                                              |
+| `userAgent`   | `string`                  | `gpxsnap (https://github.com/Slashgear/gpxsnap)` | sent on every tile request                                                                                                                 |
+| `fetchImpl`   | `FetchLike`               | global `fetch`                                   | injection point for tests / custom networking                                                                                              |
 
 ### `LineStyle` (the `line` option)
 
@@ -243,6 +244,27 @@ data, each with its own terms:
 
 See `examples/custom-style.ts` for the latter — same `tileUrl`/`attribution`
 options, just pointed at a different provider.
+
+### Retina / high-DPI output (`pixelRatio`)
+
+```ts
+const png = await renderRoute({
+  coordinates,
+  width: 1200,
+  height: 600,
+  pixelRatio: 2, // 2400x1200 physical pixels, same framing as pixelRatio: 1
+});
+```
+
+The route line, markers, badges, and elevation profile all render natively
+at the higher resolution — not just upscaled — so they stay crisp. The
+basemap does too, if `tileUrl` has a `{r}` token (substituted with `@2x`/
+`@3x`, matching Leaflet's retina URL convention) and the provider serves a
+matching tile: CARTO and Stadia (see above) both do, e.g.
+`https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png`. OSM's
+own default tile source has no retina tiles and no `{r}` token to substitute,
+so at `pixelRatio > 1` its tiles get nearest-neighbor upscaled instead —
+output resolution still increases, but the basemap itself stays blocky.
 
 ## License
 

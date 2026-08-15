@@ -126,11 +126,18 @@ export function tilesForViewport(
   return tiles;
 }
 
-export function tileUrl(template: string, tile: TileRequest): string {
+/** `@2x`/`@3x`-style suffix for the `{r}` template token, matching Leaflet's retina URL convention. Empty below pixelRatio 2 (tile providers only publish integer retina variants). */
+function retinaSuffix(pixelRatio: number): string {
+  const rounded = Math.round(pixelRatio);
+  return rounded >= 2 ? `@${rounded}x` : "";
+}
+
+export function tileUrl(template: string, tile: TileRequest, pixelRatio = 1): string {
   return template
     .replace("{z}", String(tile.z))
     .replace("{x}", String(tile.x))
-    .replace("{y}", String(tile.y));
+    .replace("{y}", String(tile.y))
+    .replace("{r}", retinaSuffix(pixelRatio));
 }
 
 /** Limits how many fetches run concurrently, without pulling in a queue library. */
@@ -166,6 +173,8 @@ export type FetchLike = (
 
 export interface FetchTileOptions {
   tileUrlTemplate: string;
+  /** Substituted into the template's `{r}` token as `@2x`/`@3x` (empty at 1). Has no effect on a template without `{r}`. */
+  pixelRatio?: number;
   concurrency?: number;
   userAgent?: string;
   fetchImpl?: FetchLike;
@@ -182,7 +191,7 @@ export async function fetchTiles(
   await Promise.all(
     tiles.map((tile) =>
       semaphore.run(async () => {
-        const url = tileUrl(options.tileUrlTemplate, tile);
+        const url = tileUrl(options.tileUrlTemplate, tile, options.pixelRatio);
         const headers: Record<string, string> = {};
         if (options.userAgent) headers["User-Agent"] = options.userAgent;
         const response = await doFetch(url, { headers });

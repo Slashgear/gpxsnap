@@ -113,3 +113,66 @@ test("renderRoute accepts a custom attribution string", async () => {
   const decoded = await decodePng(png);
   expect(decoded.width).toBe(200);
 });
+
+test("renderRoute pixelRatio scales output dimensions, framing the same area", async () => {
+  const png = await renderRoute({
+    coordinates: BASE_COORDINATES,
+    width: 200,
+    height: 150,
+    pixelRatio: 2,
+    fetchImpl: mockFetch,
+  });
+  const decoded = await decodePng(png);
+  expect(decoded.width).toBe(400);
+  expect(decoded.height).toBe(300);
+});
+
+test("renderRoute pixelRatio falls back to upscaling a non-retina tile (no {r} in tileUrl)", async () => {
+  // The fixture tile is a plain 256x256 PNG — no @2x asset behind it — so this
+  // only succeeds if the pipeline upscales rather than assuming a retina tile arrived.
+  const png = await renderRoute({
+    coordinates: BASE_COORDINATES,
+    width: 200,
+    height: 150,
+    pixelRatio: 2,
+    tileUrl: "https://example.invalid/{z}/{x}/{y}.png",
+    fetchImpl: mockFetch,
+  });
+  const decoded = await decodePng(png);
+  expect(decoded.width).toBe(400);
+  expect(decoded.height).toBe(300);
+});
+
+test("renderRoute pixelRatio requests a retina tile suffix when the tileUrl template has {r}", async () => {
+  const requestedUrls: string[] = [];
+  const png = await renderRoute({
+    coordinates: BASE_COORDINATES,
+    width: 200,
+    height: 150,
+    pixelRatio: 2,
+    tileUrl: "https://example.invalid/{z}/{x}/{y}{r}.png",
+    fetchImpl: async (url) => {
+      requestedUrls.push(url);
+      return mockFetch();
+    },
+  });
+
+  expect(requestedUrls.length).toBeGreaterThan(0);
+  for (const url of requestedUrls) expect(url).toContain("@2x.png");
+
+  const decoded = await decodePng(png);
+  expect(decoded.width).toBe(400);
+  expect(decoded.height).toBe(300);
+});
+
+test("renderRoute rejects a non-positive pixelRatio", () => {
+  expect(
+    renderRoute({
+      coordinates: BASE_COORDINATES,
+      width: 200,
+      height: 150,
+      pixelRatio: 0,
+      fetchImpl: mockFetch,
+    }),
+  ).rejects.toThrow();
+});

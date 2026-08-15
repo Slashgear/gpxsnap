@@ -15,12 +15,22 @@ export const DEFAULT_ATTRIBUTION_TEXT = "© OpenStreetMap contributors";
 const DEFAULT_TEXT = DEFAULT_ATTRIBUTION_TEXT;
 
 /** Stamps a translucent attribution bar in the bottom-right corner, per the default tile source's usage policy. */
-export function stampAttribution(canvas: Canvas, style: AttributionStyle = {}): void {
-  drawBadge(canvas, style.text ?? DEFAULT_TEXT, "bottom-right", {
-    scale: style.scale,
-    padding: style.padding,
-    textColor: style.textColor,
-    backgroundColor: style.backgroundColor,
-    backgroundOpacity: style.backgroundOpacity,
-  });
+export function stampAttribution(
+  canvas: Canvas,
+  style: AttributionStyle = {},
+  pixelRatio = 1,
+): void {
+  drawBadge(
+    canvas,
+    style.text ?? DEFAULT_TEXT,
+    "bottom-right",
+    {
+      scale: style.scale,
+      padding: style.padding,
+      textColor: style.textColor,
+      backgroundColor: style.backgroundColor,
+      backgroundOpacity: style.backgroundOpacity,
+    },
+    pixelRatio,
+  );
 }

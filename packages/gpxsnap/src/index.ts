@@ -39,6 +39,16 @@ export interface RenderRouteOptions {
    * or false only if you're self-hosting tiles under your own terms.
    */
   attribution?: boolean | string;
+  /**
+   * Output resolution multiplier (e.g. `2` for a retina/HiDPI export). The
+   * geographic framing is unchanged — only the canvas and every drawn
+   * element (line, markers, badges, elevation profile) render at
+   * `width * pixelRatio` x `height * pixelRatio` physical pixels. Also
+   * requests retina map tiles when `tileUrl` has an `{r}` token (substituted
+   * with `@2x`/`@3x`); without one, tiles are upscaled instead — sharp
+   * overlays, blockier basemap. Defaults to `1`.
+   */
+  pixelRatio?: number;
   /** Max concurrent tile fetches. */
   concurrency?: number;
   /** Sent as the tile request's User-Agent — OSM's tile usage policy requires one that identifies your app. */

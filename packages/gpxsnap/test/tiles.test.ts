@@ -6,6 +6,7 @@ import {
   lonLatToTile,
   projectToCanvas,
   TILE_SIZE,
+  tileUrl,
   tilesForViewport,
 } from "../src/tiles.ts";
 
@@ -116,4 +117,21 @@ test("bbox edge case: fitZoom clamps to minZoom for a bbox spanning the whole wo
   const bounds = { minLon: -180, minLat: -85, maxLon: 180, maxLat: 85 };
   const zoom = fitZoom(bounds, { width: 400, height: 300, padding: 20 });
   expect(zoom).toBe(0);
+});
+
+test("tileUrl fills in z/x/y and leaves a template without {r} untouched at any pixelRatio", () => {
+  const template = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+  const tile = { x: 4149, y: 2818, z: 13 };
+  expect(tileUrl(template, tile)).toBe("https://tile.openstreetmap.org/13/4149/2818.png");
+  expect(tileUrl(template, tile, 2)).toBe("https://tile.openstreetmap.org/13/4149/2818.png");
+});
+
+test("tileUrl substitutes {r} with the retina suffix, empty below pixelRatio 2", () => {
+  const template = "https://tiles.example/{z}/{x}/{y}{r}.png";
+  const tile = { x: 1, y: 2, z: 3 };
+  expect(tileUrl(template, tile)).toBe("https://tiles.example/3/1/2.png");
+  expect(tileUrl(template, tile, 1)).toBe("https://tiles.example/3/1/2.png");
+  expect(tileUrl(template, tile, 1.4)).toBe("https://tiles.example/3/1/2.png");
+  expect(tileUrl(template, tile, 2)).toBe("https://tiles.example/3/1/2@2x.png");
+  expect(tileUrl(template, tile, 3)).toBe("https://tiles.example/3/1/2@3x.png");
 });

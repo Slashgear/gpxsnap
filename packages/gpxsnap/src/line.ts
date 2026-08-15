@@ -91,15 +91,20 @@ export function drawDot(
   strokeSegment(canvas, center, center, radius, parseColor(color), opacity);
 }
 
-/** Strokes a full polyline as a sequence of round-capped capsule segments. */
+/**
+ * Strokes a full polyline as a sequence of round-capped capsule segments.
+ * `pixelRatio` scales the stroke width only — `points` are expected to
+ * already be in physical (scaled) canvas coordinates.
+ */
 export function strokePolyline(
   canvas: Canvas,
   points: readonly Point[],
   style: StrokeStyle = {},
+  pixelRatio = 1,
 ): void {
   if (points.length === 0) return;
 
-  const width = style.width ?? DEFAULT_WIDTH;
+  const width = (style.width ?? DEFAULT_WIDTH) * pixelRatio;
   const opacity = style.opacity ?? DEFAULT_OPACITY;
   const rgb = parseColor(style.color ?? DEFAULT_COLOR);
   const radius = width / 2;
