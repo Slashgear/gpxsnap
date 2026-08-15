@@ -12,6 +12,7 @@ const showStatsInput = document.getElementById("show-stats") as HTMLInputElement
 const showElevationProfileInput = document.getElementById(
   "show-elevation-profile",
 ) as HTMLInputElement;
+const showAttributionInput = document.getElementById("show-attribution") as HTMLInputElement;
 const statusEl = document.getElementById("demo-status")!;
 const resultEl = document.getElementById("demo-result")!;
 const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
@@ -42,6 +43,7 @@ form.addEventListener("submit", async (event) => {
       title: showTitleInput.checked ? titleInput.value.trim() || undefined : false,
       stats: showStatsInput.checked,
       elevationProfile: showElevationProfileInput.checked,
+      attribution: showAttributionInput.checked,
     });
 
     if (lastObjectUrl) URL.revokeObjectURL(lastObjectUrl);

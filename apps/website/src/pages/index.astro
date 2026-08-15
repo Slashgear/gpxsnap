@@ -97,6 +97,10 @@ const sampleSrc = `${import.meta.env.BASE_URL}sample.png`;
               <input type="checkbox" id="show-elevation-profile" checked />
               Elevation profile
             </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="show-attribution" checked />
+              Tile attribution
+            </label>
           </div>
           <button type="submit" class="button">Render</button>
         </form>
@@ -106,7 +110,11 @@ const sampleSrc = `${import.meta.env.BASE_URL}sample.png`;
           Map tiles are fetched directly from <code>tile.openstreetmap.org</code>
           — no proxy, no backend. That source has no retina tiles, so above 1x
           the route line, markers, and text render crisply at full resolution
-          while the basemap itself is upscaled.
+          while the basemap itself is upscaled. OpenStreetMap's
+          <a href="https://operations.osmfoundation.org/policies/tiles/">usage policy</a>
+          requires attribution on every image using their tiles — only turn it
+          off if you're previewing locally or pointing at a source that doesn't
+          require it.
         </p>
       </section>
 
