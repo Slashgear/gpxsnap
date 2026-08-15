@@ -49,6 +49,17 @@ export interface RenderRouteOptions {
    * overlays, blockier basemap. Defaults to `1`.
    */
   pixelRatio?: number;
+  /**
+   * Output image format. Defaults to `"png"`, produced by this package's own
+   * dependency-free encoder — works on Bun, Node, and Deno alike, like the
+   * rest of the package. `"webp"`/`"jpeg"` re-encode that PNG through Bun's
+   * native `Bun.Image` (no npm dependency, built into the Bun binary): only
+   * available when running on Bun — requesting either on Node/Deno throws
+   * immediately, before any tile fetching.
+   */
+  format?: "png" | "webp" | "jpeg";
+  /** 1–100. Only meaningful with `format: "webp" | "jpeg"`; ignored otherwise. */
+  quality?: number;
   /** Max concurrent tile fetches. */
   concurrency?: number;
   /** Sent as the tile request's User-Agent — OSM's tile usage policy requires one that identifies your app. */

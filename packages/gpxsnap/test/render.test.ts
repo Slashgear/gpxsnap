@@ -176,3 +176,60 @@ test("renderRoute rejects a non-positive pixelRatio", () => {
     }),
   ).rejects.toThrow();
 });
+
+test("renderRoute format: webp produces bytes Bun sniffs as webp", async () => {
+  const png = await renderRoute({
+    coordinates: BASE_COORDINATES,
+    width: 200,
+    height: 150,
+    format: "webp",
+    fetchImpl: mockFetch,
+  });
+  const meta = await new Bun.Image(png).metadata();
+  expect(meta.format).toBe("webp");
+  expect(meta.width).toBe(200);
+  expect(meta.height).toBe(150);
+});
+
+test("renderRoute format: jpeg produces bytes Bun sniffs as jpeg", async () => {
+  const png = await renderRoute({
+    coordinates: BASE_COORDINATES,
+    width: 200,
+    height: 150,
+    format: "jpeg",
+    fetchImpl: mockFetch,
+  });
+  const meta = await new Bun.Image(png).metadata();
+  expect(meta.format).toBe("jpeg");
+});
+
+test("renderRoute format: png (default) is untouched by the Bun.Image bridge", async () => {
+  const png = await renderRoute({
+    coordinates: BASE_COORDINATES,
+    width: 200,
+    height: 150,
+    fetchImpl: mockFetch,
+  });
+  expect(png[0]).toBe(0x89); // PNG signature — same golden-render path as before
+  expect(png[1]).toBe(0x50);
+});
+
+test("renderRoute format: jpeg quality changes output size", async () => {
+  const low = await renderRoute({
+    coordinates: BASE_COORDINATES,
+    width: 400,
+    height: 300,
+    format: "jpeg",
+    quality: 5,
+    fetchImpl: mockFetch,
+  });
+  const high = await renderRoute({
+    coordinates: BASE_COORDINATES,
+    width: 400,
+    height: 300,
+    format: "jpeg",
+    quality: 95,
+    fetchImpl: mockFetch,
+  });
+  expect(high.length).toBeGreaterThan(low.length);
+});

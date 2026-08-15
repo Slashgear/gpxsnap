@@ -48,6 +48,27 @@ assert(
   `unexpected dimensions ${decoded.width}x${decoded.height}`,
 );
 
+// format: "webp"/"jpeg" is a Bun-only enhancement (re-encodes via Bun's native
+// Bun.Image) — it must succeed on Bun and throw a clear error everywhere else,
+// so the "same code on every runtime" guarantee holds for the default PNG path.
+const isBun = typeof (globalThis as { Bun?: unknown }).Bun !== "undefined";
+try {
+  const webp = await renderRoute({
+    coordinates,
+    width: 300,
+    height: 200,
+    padding: 20,
+    format: "webp",
+    tileUrl: "https://example.invalid/{z}/{x}/{y}.png",
+    fetchImpl: mockFetch,
+  });
+  assert(isBun, 'format: "webp" should have thrown outside Bun, but it succeeded');
+  assert(webp.length > 0, 'format: "webp" produced an empty buffer on Bun');
+} catch (error) {
+  assert(!isBun, `format: "webp" should have succeeded on Bun, but threw: ${error}`);
+}
+
 console.log(
-  `OK (${runtimeLabel()}): rendered ${png.length} bytes, decoded back to ${decoded.width}x${decoded.height}`,
+  `OK (${runtimeLabel()}): rendered ${png.length} bytes, decoded back to ${decoded.width}x${decoded.height}` +
+    ` — format:"webp" ${isBun ? "succeeded" : "threw"} as expected`,
 );

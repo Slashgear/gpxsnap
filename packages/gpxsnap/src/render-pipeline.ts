@@ -2,6 +2,11 @@ import { Canvas, upscaleNearestNeighbor } from "./canvas.ts";
 import { decodePng } from "./png/decode.ts";
 import { encodePng } from "./png/encode.ts";
 import {
+  encodeWithBunImage,
+  isBunImageAvailable,
+  unsupportedFormatError,
+} from "./bun-image-bridge.ts";
+import {
   boundsOf,
   canvasOrigin,
   fetchTiles,
@@ -60,6 +65,15 @@ export interface RenderPipelineOptions {
    * tile — sharp overlays, blockier basemap.
    */
   pixelRatio?: number;
+  /**
+   * Output image format. Defaults to `"png"`, produced by this package's own
+   * dependency-free encoder on every runtime. `"webp"`/`"jpeg"` re-encode
+   * that PNG through Bun's native `Bun.Image` — only available when running
+   * on Bun; throws immediately (before any tile fetching) on Node/Deno.
+   */
+  format?: "png" | "webp" | "jpeg";
+  /** 1–100. Only meaningful with `format: "webp" | "jpeg"`; ignored otherwise. */
+  quality?: number;
   title?: string | false;
   /** Pre-formatted stats text (see statistics.ts), stamped as a badge in the top-right corner. */
   statsText?: string;
@@ -88,6 +102,8 @@ export async function renderPipeline(
   const padding = options.padding ?? 40;
   const pixelRatio = options.pixelRatio ?? 1;
   if (!(pixelRatio > 0)) throw new Error("pixelRatio must be a positive number");
+  const format = options.format ?? "png";
+  if (format !== "png" && !isBunImageAvailable()) throw unsupportedFormatError(format);
 
   // Framing (zoom/bounds/tiles) is computed in logical pixel space, unaffected by
   // pixelRatio, so the same geographic area is shown regardless of output resolution.
@@ -197,5 +213,6 @@ export async function renderPipeline(
     );
   }
 
-  return encodePng(canvas.pixels, canvas.width, canvas.height);
+  const png = await encodePng(canvas.pixels, canvas.width, canvas.height);
+  return format === "png" ? png : encodeWithBunImage(png, format, options.quality);
 }
