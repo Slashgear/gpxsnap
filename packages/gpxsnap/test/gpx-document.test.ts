@@ -22,6 +22,21 @@ test("parseGpxDocument parses elevation per point when present", () => {
   ]);
 });
 
+test("parseGpxDocument parses <time> per point when present", () => {
+  const gpx = `<gpx><trk><trkseg><trkpt lat="1" lon="2"><time>2024-05-01T10:00:00Z</time></trkpt><trkpt lat="3" lon="4"/></trkseg></trk></gpx>`;
+  const doc = parseGpxDocument(gpx);
+  expect(doc.tracks[0]!.points).toEqual([
+    { lon: 2, lat: 1, elevation: undefined, time: "2024-05-01T10:00:00Z" },
+    { lon: 4, lat: 3, elevation: undefined, time: undefined },
+  ]);
+});
+
+test("parseGpxDocument ignores an unparseable <time> value", () => {
+  const gpx = `<gpx><trk><trkseg><trkpt lat="1" lon="2"><time>not-a-date</time></trkpt></trkseg></trk></gpx>`;
+  const doc = parseGpxDocument(gpx);
+  expect(doc.tracks[0]!.points[0]!.time).toBeUndefined();
+});
+
 test("parseGpxDocument splits multiple <trk> into separate tracks", () => {
   const gpx = `<gpx>
     <trk><name>Out</name><trkseg><trkpt lat="1" lon="1"/><trkpt lat="2" lon="2"/></trkseg></trk>

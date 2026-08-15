@@ -168,20 +168,20 @@ import { parseGpxDocument, parseGpxTrackPoints, extractGpxName } from "gpxsnap/g
 
 const gpxContents = await Bun.file("route.gpx").text();
 
-parseGpxDocument(gpxContents); // full structure: tracks, waypoints, names, colors, elevation
+parseGpxDocument(gpxContents); // full structure: tracks, waypoints, names, colors, elevation, timestamps
 parseGpxTrackPoints(gpxContents); // just [lon, lat][], flattened across tracks — what renderGpx feeds to renderRoute
 extractGpxName(gpxContents); // the same name renderGpx auto-fills into `title`
 ```
 
-| Function                   | Returns               | Notes                                                                                                                                                                 |
-| -------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `parseGpxDocument(gpx)`    | `GpxDocument`         | `{ name?, tracks: GpxTrack[], waypoints: GpxWaypoint[] }`. Each `GpxTrack` is `{ name?, color?, points: GpxPoint[] }`; each `GpxPoint` is `{ lon, lat, elevation? }`. |
-| `parseGpxTrackPoints(gpx)` | `[number, number][]`  | Flattened `[lon, lat]` pairs across every track/route. Throws if there are no `<trkpt>`/`<rtept>` elements at all.                                                    |
-| `extractGpxName(gpx)`      | `string \| undefined` | First track's own name, falling back to `<metadata><name>`.                                                                                                           |
+| Function                   | Returns               | Notes                                                                                                                                                                                                                                                                                               |
+| -------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `parseGpxDocument(gpx)`    | `GpxDocument`         | `{ name?, tracks: GpxTrack[], waypoints: GpxWaypoint[] }`. Each `GpxTrack` is `{ name?, color?, points: GpxPoint[] }`; each `GpxPoint` is `{ lon, lat, elevation?, time? }` (`time` is the raw ISO 8601 string from `<time>`, kept only when it parses as a valid date; not yet used by rendering). |
+| `parseGpxTrackPoints(gpx)` | `[number, number][]`  | Flattened `[lon, lat]` pairs across every track/route. Throws if there are no `<trkpt>`/`<rtept>` elements at all.                                                                                                                                                                                  |
+| `extractGpxName(gpx)`      | `string \| undefined` | First track's own name, falling back to `<metadata><name>`.                                                                                                                                                                                                                                         |
 
 These are a targeted extraction, not a general-purpose XML parser: only the
 elements a route preview needs (`<trk>`/`<rte>`, `<trkpt>`/`<rtept>`, `<wpt>`,
-`<name>`, `<ele>`, and the `gpx_style:color` extension), matched with
+`<name>`, `<ele>`, `<time>`, and the `gpx_style:color` extension), matched with
 `indexOf`-based scanning kept deliberately linear in input size — including
 on malformed input (unclosed tags, missing `>`) — rather than a backtracking
 regex, so a truncated or malicious upload can't pin the CPU. External
