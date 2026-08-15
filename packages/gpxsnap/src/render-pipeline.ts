@@ -25,6 +25,8 @@ import type { BadgeStyle } from "./badge.ts";
 import { stampAttribution, DEFAULT_ATTRIBUTION_TEXT } from "./attribution.ts";
 import { drawElevationProfile } from "./elevation-chart.ts";
 import type { ElevationProfilePoint, ElevationProfileStyle } from "./elevation-chart.ts";
+import { drawLegend } from "./legend.ts";
+import type { LegendStyle } from "./legend.ts";
 
 /**
  * The shared implementation behind both `renderRoute` (one track) and
@@ -40,6 +42,8 @@ export interface RenderTrack {
   points: readonly LonLat[];
   /** Falls back to this track's own color when `line.color` isn't set explicitly. */
   color?: string;
+  /** Used as this track's row label in the `legend` overlay; falls back to "Track N" (1-indexed) when unset. */
+  name?: string;
 }
 
 export interface RenderPipelineOptions {
@@ -81,6 +85,12 @@ export interface RenderPipelineOptions {
   /** Cumulative-distance/elevation pairs (see elevation-chart.ts), drawn as a mini profile chart along the bottom strip. */
   elevationProfilePoints?: readonly ElevationProfilePoint[];
   elevationProfileStyle?: ElevationProfileStyle;
+  /**
+   * Color-swatch-and-name key for each track, stamped in the bottom-left
+   * corner — only drawn when there's more than one track (a single track's
+   * color needs no key). `false`/omitted to always skip it.
+   */
+  legend?: boolean | LegendStyle;
 }
 
 const DEFAULT_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
@@ -201,6 +211,22 @@ export async function renderPipeline(
         reservedRightMargin,
         ...options.elevationProfileStyle,
       },
+      pixelRatio,
+    );
+  }
+
+  if (options.legend && tracks.length > 1) {
+    const legendEntries = tracks.map((track, i) => ({
+      color:
+        options.line?.color ??
+        track.color ??
+        DEFAULT_TRACK_COLORS[i % DEFAULT_TRACK_COLORS.length]!,
+      label: track.name ?? `Track ${i + 1}`,
+    }));
+    drawLegend(
+      canvas,
+      legendEntries,
+      typeof options.legend === "object" ? options.legend : {},
       pixelRatio,
     );
   }
