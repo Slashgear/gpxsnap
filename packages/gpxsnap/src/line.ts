@@ -9,11 +9,55 @@ export interface StrokeStyle {
   color?: string;
   width?: number;
   opacity?: number;
+  /**
+   * Overrides `color`: the stroke is colored by interpolating these stops
+   * along the route's own length (by on-canvas pixel distance walked, not
+   * real-world distance) instead of a single flat color. `"rainbow"` is a
+   * built-in ROYGBIV preset; otherwise a list of 2+ hex colors.
+   */
+  gradient?: readonly string[] | "rainbow";
 }
 
 const DEFAULT_COLOR = "#E74C3C";
 const DEFAULT_WIDTH = 3;
 const DEFAULT_OPACITY = 1;
+const RAINBOW_GRADIENT = [
+  "#FF0000",
+  "#FF7F00",
+  "#FFFF00",
+  "#00FF00",
+  "#0000FF",
+  "#4B0082",
+  "#9400D3",
+];
+
+/** Resolves `style.gradient` to parsed RGB stops, or `undefined` if unset or too short to interpolate (falls back to `color`). */
+function resolveGradientStops(
+  gradient: StrokeStyle["gradient"],
+): [number, number, number][] | undefined {
+  if (!gradient) return undefined;
+  const hexStops = gradient === "rainbow" ? RAINBOW_GRADIENT : gradient;
+  if (hexStops.length < 2) return undefined;
+  return hexStops.map(parseColor);
+}
+
+/** Linearly interpolates across evenly-spaced color stops at position `t` (clamped to [0, 1]). */
+function lerpGradient(
+  stops: readonly [number, number, number][],
+  t: number,
+): [number, number, number] {
+  const clamped = t < 0 ? 0 : t > 1 ? 1 : t;
+  const scaled = clamped * (stops.length - 1);
+  const i = Math.min(stops.length - 2, Math.floor(scaled));
+  const localT = scaled - i;
+  const a = stops[i]!;
+  const b = stops[i + 1]!;
+  return [
+    Math.round(a[0] + (b[0] - a[0]) * localT),
+    Math.round(a[1] + (b[1] - a[1]) * localT),
+    Math.round(a[2] + (b[2] - a[2]) * localT),
+  ];
+}
 
 /** Parses a "#rgb" or "#rrggbb" hex color into 8-bit RGB components. */
 export function parseColor(color: string): [number, number, number] {
@@ -196,15 +240,37 @@ export function strokePolyline(
 
   const width = (style.width ?? DEFAULT_WIDTH) * pixelRatio;
   const opacity = style.opacity ?? DEFAULT_OPACITY;
-  const rgb = parseColor(style.color ?? DEFAULT_COLOR);
   const radius = width / 2;
+  const gradientStops = resolveGradientStops(style.gradient);
 
   if (points.length === 1) {
+    const rgb = gradientStops ? gradientStops[0]! : parseColor(style.color ?? DEFAULT_COLOR);
     strokeSegment(canvas, points[0]!, points[0]!, radius, rgb, opacity);
     return;
   }
 
+  if (!gradientStops) {
+    const rgb = parseColor(style.color ?? DEFAULT_COLOR);
+    for (let i = 0; i < points.length - 1; i++) {
+      strokeSegment(canvas, points[i]!, points[i + 1]!, radius, rgb, opacity);
+    }
+    return;
+  }
+
+  // Cumulative on-canvas pixel distance walked up to each point — the axis
+  // each segment's gradient position is interpolated along.
+  const cumulative = [0];
+  for (let i = 1; i < points.length; i++) {
+    cumulative.push(
+      cumulative[i - 1]! +
+        Math.hypot(points[i]!.x - points[i - 1]!.x, points[i]!.y - points[i - 1]!.y),
+    );
+  }
+  const totalLength = cumulative[cumulative.length - 1]! || 1;
+
   for (let i = 0; i < points.length - 1; i++) {
+    const midFraction = (cumulative[i]! + cumulative[i + 1]!) / 2 / totalLength;
+    const rgb = lerpGradient(gradientStops, midFraction);
     strokeSegment(canvas, points[i]!, points[i + 1]!, radius, rgb, opacity);
   }
 }
