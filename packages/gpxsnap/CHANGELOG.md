@@ -1,5 +1,61 @@
 # gpxsnap
 
+## 1.2.0
+
+### Minor Changes
+
+- 2ec32f2: Add `colorBy` to `LineStyle`, reusing the existing `gradient` option (from
+  `pixelRatio`'s sibling feature, line gradients) as the color ramp:
+  `colorBy: "elevation" | "speed"` positions each point along `gradient` by
+  its own value, normalized to the route's own min/max, instead of position
+  along the route's length (the previous, still-default behavior). GPX-only
+  (needs `<ele>`/`<time>` data `renderRoute`'s bare coordinates don't carry)
+  and falls back silently to length-based coloring when there isn't enough
+  usable data, matching `stats`/`elevationProfile`'s existing convention.
+- fbc615c: Add `distanceMarkers` to `renderRoute`/`renderGpx`: tick marks every
+  `interval` (default 5) `unit` (default `"km"`) of real-world route
+  distance, perpendicular to the route at that point, with an optional
+  distance label. Placed per track — no marker spans the gap between
+  disconnected tracks. It's purely coordinate-based (no elevation/timestamp
+  data needed), so — unlike `stats`/`elevationProfile`/`legend` — it's
+  available on `renderRoute` as well as `renderGpx`.
+- cacf0fb: Add `gradient` to `LineStyle` (the `line` option): overrides `color`,
+  interpolating a list of hex color stops (or the built-in `"rainbow"`
+  preset) along the route's own on-canvas length. Resolved per rendered
+  segment, so it's smoothest on dense tracks. Needs no `<time>`/elevation
+  data, unlike speed-based coloring.
+- 0d23ed3: Add `shape` to `MarkerStyle` (start/end route markers): `"circle"`
+  (default, unchanged) | `"square"` | `"diamond"` | `"triangle"`. Built-in
+  vector shapes drawn with the same antialiased fill approach as the rest of
+  the renderer — no image assets, same dependency-free spirit as the
+  hand-drawn bitmap font. The ring, if any, is drawn in the same shape,
+  slightly larger.
+- 0c3fc55: Add `legend` to `renderGpx` for multi-track files: a color-swatch-and-name
+  key stamped in the bottom-left corner, one row per track, only drawn when
+  the file has more than one track. Entries beyond `LegendStyle.maxEntries`
+  (default 6) collapse into a trailing "+N more" row instead of growing the
+  plate without bound.
+- c448809: Parse `<time>` per GPX point. `GpxPoint` (and `parseGpxDocument`'s output)
+  now carries an optional `time` field — the raw ISO 8601 string from
+  `<trkpt>`/`<rtept>`'s `<time>` child, kept only when it parses as a valid
+  date. Not yet used by rendering — this is the foundation for upcoming
+  duration/speed/pace features.
+- efc465a: Add `pixelRatio` to `renderRoute`/`renderGpx` for high-DPI/retina output. The
+  geographic framing stays identical to `pixelRatio: 1`; the canvas and every
+  drawn element (route line, markers, badges, elevation profile) render at
+  `width * pixelRatio` x `height * pixelRatio` physical pixels instead. Also
+  requests retina map tiles: `tileUrl` templates with an `{r}` token get it
+  substituted with `@2x`/`@3x`; templates without one (e.g. the default OSM
+  source, which has no retina tiles) fall back to nearest-neighbor upscaling
+  the standard tile.
+- 2a9fe81: Add `format`/`quality` to `renderRoute`/`renderGpx` for WebP/JPEG output on
+  Bun. The default PNG path is unchanged on every runtime — gpxsnap still
+  renders and encodes the same dependency-free PNG it always did. Requesting
+  `format: "webp" | "jpeg"` re-encodes those PNG bytes through Bun's native
+  `Bun.Image` (no npm dependency, built into the Bun binary); it's a Bun-only
+  enhancement, so requesting it on Node or Deno throws a clear error
+  immediately, before any tile fetching, rather than silently falling back.
+
 ## 1.1.1
 
 ### Patch Changes
