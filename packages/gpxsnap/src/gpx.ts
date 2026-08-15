@@ -6,6 +6,7 @@ import type { BadgeStyle } from "./badge.ts";
 import { computeStatistics, formatStatistics } from "./statistics.ts";
 import { buildElevationProfile } from "./elevation-chart.ts";
 import type { ElevationProfileStyle } from "./elevation-chart.ts";
+import type { LegendStyle } from "./legend.ts";
 
 const NAME_TAG = /<name>([\s\S]*?)<\/name>/;
 
@@ -257,6 +258,13 @@ export type RenderGpxOptions = Omit<RenderRouteOptions, "coordinates"> & {
    * silently omitted if a track has fewer than 2 points with elevation.
    */
   elevationProfile?: boolean | ElevationProfileStyle;
+  /**
+   * Color-swatch-and-name key for each track, stamped in the bottom-left
+   * corner. Only drawn when the file has more than one track — a single
+   * track's color needs no key. GPX-only, like `stats`/`elevationProfile`
+   * — `renderRoute` renders one anonymous track with no name to show.
+   */
+  legend?: boolean | LegendStyle;
 };
 
 function simplifyTrack(track: GpxTrack, toleranceMeters: number): GpxTrack {
@@ -308,6 +316,7 @@ export async function renderGpx(
   const renderTracks: RenderTrack[] = tracks.map((track) => ({
     points: track.points.map((p): [number, number] => [p.lon, p.lat]),
     color: track.color,
+    name: track.name,
   }));
   const waypoints: [number, number][] = document.waypoints.map((w) => [w.lon, w.lat]);
 

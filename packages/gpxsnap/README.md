@@ -146,17 +146,23 @@ Each of `start` / `end` is a `MarkerStyle`:
 
 Same options as `renderRoute`, minus `coordinates` (extracted from the GPX
 data for you), plus `title` auto-filled from the GPX's own `<name>` (see
-above) and two GPX-only options that need per-point elevation data
-`renderRoute` doesn't have. Exported from `gpxsnap/gpx`.
+above) and three GPX-only options that need data (per-point elevation, or
+multiple named tracks) `renderRoute` doesn't have. Exported from
+`gpxsnap/gpx`.
 
 | Option             | Type                               | Default | Notes                                                                                                          |
 | ------------------ | ---------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
 | `stats`            | `boolean \| BadgeStyle`            | `false` | badge (top-right) with distance, and — if at least half the points have `<ele>` — smoothed elevation gain/loss |
 | `elevationProfile` | `boolean \| ElevationProfileStyle` | `false` | mini filled line chart along the bottom strip; silently omitted with fewer than 2 elevation points             |
+| `legend`           | `boolean \| LegendStyle`           | `false` | color-swatch-and-name key (bottom-left), one row per track; only drawn with more than one track                |
 
 `BadgeStyle` is `{ scale?, padding?, textColor?, backgroundColor?,
 backgroundOpacity? }`. `ElevationProfileStyle` is `{ height?, lineColor?,
 fillColor?, fillOpacity?, backgroundColor?, backgroundOpacity? }`.
+`LegendStyle` is `{ scale?, padding?, textColor?, backgroundColor?,
+backgroundOpacity?, swatchSize?, maxEntries? }` — `maxEntries` (default `6`)
+caps how many track rows are shown before the rest collapse into a single
+"+N more" row.
 
 ### GPX parsing, without rendering
 

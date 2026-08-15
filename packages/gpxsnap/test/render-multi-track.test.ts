@@ -68,6 +68,27 @@ test("an explicit line.color overrides every track's embedded color uniformly", 
   expect(Array.from(perTrackColors)).not.toEqual(Array.from(forcedUniform));
 });
 
+test("legend adds a visible key when there's more than one track", async () => {
+  const gpx = `<gpx>
+    <trk><name>Out</name><trkseg><trkpt lat="48.85" lon="2.30"/><trkpt lat="48.86" lon="2.31"/></trkseg></trk>
+    <trk><name>Back</name><trkseg><trkpt lat="48.95" lon="2.45"/><trkpt lat="48.96" lon="2.46"/></trkseg></trk>
+  </gpx>`;
+
+  const withLegend = await renderGpx(gpx, { ...BASE_OPTIONS, legend: true });
+  const withoutLegend = await renderGpx(gpx, { ...BASE_OPTIONS, legend: false });
+
+  expect(Array.from(withLegend)).not.toEqual(Array.from(withoutLegend));
+});
+
+test("legend is a no-op for a single-track file, even when enabled", async () => {
+  const gpx = `<gpx><trk><name>Solo</name><trkseg><trkpt lat="48.85" lon="2.30"/><trkpt lat="48.86" lon="2.31"/></trkseg></trk></gpx>`;
+
+  const withLegend = await renderGpx(gpx, { ...BASE_OPTIONS, legend: true });
+  const withoutLegend = await renderGpx(gpx, { ...BASE_OPTIONS, legend: false });
+
+  expect(Array.from(withLegend)).toEqual(Array.from(withoutLegend));
+});
+
 test("cycles a default color per track when none has an embedded color", async () => {
   const gpx = `<gpx>
     <trk><trkseg><trkpt lat="48.85" lon="2.30"/><trkpt lat="48.86" lon="2.31"/></trkseg></trk>
