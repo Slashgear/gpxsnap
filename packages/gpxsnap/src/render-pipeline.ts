@@ -29,6 +29,7 @@ import { drawLegend } from "./legend.ts";
 import type { LegendStyle } from "./legend.ts";
 import { buildDistanceMarkers, drawDistanceMarkers, intervalToMeters } from "./distance-markers.ts";
 import type { DistanceMarkersStyle } from "./distance-markers.ts";
+import { normalizeElevations, normalizeSpeeds } from "./color-by.ts";
 
 /**
  * The shared implementation behind both `renderRoute` (one track) and
@@ -46,6 +47,10 @@ export interface RenderTrack {
   color?: string;
   /** Used as this track's row label in the `legend` overlay; falls back to "Track N" (1-indexed) when unset. */
   name?: string;
+  /** Same length/order as `points`. Powers `line.colorBy: "elevation"`. */
+  elevations?: readonly (number | undefined)[];
+  /** Same length/order as `points`, ISO 8601. Powers `line.colorBy: "speed"`. */
+  times?: readonly (string | undefined)[];
 }
 
 export interface RenderPipelineOptions {
@@ -172,11 +177,20 @@ export async function renderPipeline(
   );
 
   tracks.forEach((track, i) => {
+    const colorBy = options.line?.colorBy ?? "length";
+    const pointValues =
+      colorBy === "elevation" && track.elevations
+        ? normalizeElevations(track.elevations)
+        : colorBy === "speed" && track.times
+          ? normalizeSpeeds(track.points, track.times)
+          : undefined;
+
     strokePolyline(
       canvas,
       projectedTracks[i]!,
       { ...options.line, color: resolvedTrackColors[i] },
       pixelRatio,
+      pointValues,
     );
   });
 

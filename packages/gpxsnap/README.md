@@ -125,12 +125,13 @@ tool for that.
 
 ### `LineStyle` (the `line` option)
 
-| Field      | Type                             | Default     | Notes                                                                    |
-| ---------- | -------------------------------- | ----------- | ------------------------------------------------------------------------ |
-| `color`    | `string`                         | `"#E74C3C"` | ignored when `gradient` is set                                           |
-| `width`    | `number`                         | `3`         |                                                                          |
-| `opacity`  | `number`                         | `1`         |                                                                          |
-| `gradient` | `readonly string[] \| "rainbow"` | `undefined` | overrides `color` — interpolated along the route's own length; see below |
+| Field      | Type                                 | Default     | Notes                                                                        |
+| ---------- | ------------------------------------ | ----------- | ---------------------------------------------------------------------------- |
+| `color`    | `string`                             | `"#E74C3C"` | ignored when `gradient` is set                                               |
+| `width`    | `number`                             | `3`         |                                                                              |
+| `opacity`  | `number`                             | `1`         |                                                                              |
+| `gradient` | `readonly string[] \| "rainbow"`     | `undefined` | overrides `color` — interpolated along `colorBy`; see below                  |
+| `colorBy`  | `"length" \| "elevation" \| "speed"` | `"length"`  | what `gradient` is interpolated along — GPX-only for `"elevation"`/`"speed"` |
 
 ```ts
 const png = await renderRoute({
@@ -141,11 +142,23 @@ const png = await renderRoute({
 });
 ```
 
-The gradient is resolved per rendered segment (at that segment's position
-along the route's total on-canvas length), so it's smoothest on dense
-tracks — a real recorded ride with hundreds of points — and visibly
-"chunky" on a route with only a handful of points, since each segment
-between two points can only carry one interpolated color.
+By default (`colorBy: "length"`) the gradient is resolved per rendered
+segment, at that segment's position along the route's total on-canvas
+length — smoothest on dense tracks (a real recorded ride with hundreds of
+points), visibly "chunky" on a route with only a handful of points, since
+each segment between two points can only carry one interpolated color.
+
+`colorBy: "elevation"` or `"speed"` instead position each point along
+`gradient` by its own value, normalized to this route's min/max (the lowest
+point gets one end of the gradient, the highest the other — not a fixed
+absolute scale, so the same colors mean different actual values on
+different routes). Both need data `renderRoute`'s bare coordinates don't
+carry, so they only take effect via `renderGpx`, and only when there's
+enough of it — 2+ points with `<ele>` for `"elevation"`, 2+ points with a
+usable consecutive `<time>` delta for `"speed"` (instantaneous speed between
+each pair of points, not a moving-time-aware average) — otherwise this
+silently falls back to `"length"`, same "not enough data" convention as
+`stats`/`elevationProfile`.
 
 ### `MarkersStyle` (the `markers` option, as `{ start?, end? }`)
 
