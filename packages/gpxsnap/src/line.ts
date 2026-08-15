@@ -11,11 +11,21 @@ export interface StrokeStyle {
   opacity?: number;
   /**
    * Overrides `color`: the stroke is colored by interpolating these stops
-   * along the route's own length (by on-canvas pixel distance walked, not
-   * real-world distance) instead of a single flat color. `"rainbow"` is a
-   * built-in ROYGBIV preset; otherwise a list of 2+ hex colors.
+   * instead of a single flat color — along the route's own on-canvas length
+   * by default (see `colorBy`). `"rainbow"` is a built-in ROYGBIV preset;
+   * otherwise a list of 2+ hex colors.
    */
   gradient?: readonly string[] | "rainbow";
+  /**
+   * What determines each point's position along `gradient`. `"length"`
+   * (default) is on-canvas pixel distance walked. `"elevation"`/`"speed"`
+   * use that point's value, normalized to this route's own min/max — GPX
+   * data `renderRoute` doesn't have, so those only take effect via
+   * `renderGpx`, and only when the underlying data (2+ points with `<ele>`,
+   * or 2+ points with usable consecutive `<time>` deltas) is present;
+   * otherwise this silently falls back to `"length"`.
+   */
+  colorBy?: "length" | "elevation" | "speed";
 }
 
 const DEFAULT_COLOR = "#E74C3C";
@@ -229,12 +239,19 @@ export function drawMarkerShape(
  * Strokes a full polyline as a sequence of round-capped capsule segments.
  * `pixelRatio` scales the stroke width only — `points` are expected to
  * already be in physical (scaled) canvas coordinates.
+ *
+ * `pointValues`, if given, must be the same length as `points`: each
+ * point's already-normalized [0, 1] position along `style.gradient`
+ * (`colorBy: "elevation" | "speed"` territory — the caller resolves the
+ * actual data, `strokePolyline` just interpolates colors from it). Omit it
+ * to use on-canvas length instead (`colorBy: "length"`, the default).
  */
 export function strokePolyline(
   canvas: Canvas,
   points: readonly Point[],
   style: StrokeStyle = {},
   pixelRatio = 1,
+  pointValues?: readonly number[],
 ): void {
   if (points.length === 0) return;
 
@@ -257,19 +274,27 @@ export function strokePolyline(
     return;
   }
 
-  // Cumulative on-canvas pixel distance walked up to each point — the axis
-  // each segment's gradient position is interpolated along.
-  const cumulative = [0];
-  for (let i = 1; i < points.length; i++) {
-    cumulative.push(
-      cumulative[i - 1]! +
-        Math.hypot(points[i]!.x - points[i - 1]!.x, points[i]!.y - points[i - 1]!.y),
-    );
+  const useValues = pointValues && pointValues.length === points.length;
+
+  // Cumulative on-canvas pixel distance walked up to each point — the
+  // fallback axis when no per-point values are supplied.
+  let cumulative: number[] | undefined;
+  let totalLength = 1;
+  if (!useValues) {
+    cumulative = [0];
+    for (let i = 1; i < points.length; i++) {
+      cumulative.push(
+        cumulative[i - 1]! +
+          Math.hypot(points[i]!.x - points[i - 1]!.x, points[i]!.y - points[i - 1]!.y),
+      );
+    }
+    totalLength = cumulative[cumulative.length - 1]! || 1;
   }
-  const totalLength = cumulative[cumulative.length - 1]! || 1;
 
   for (let i = 0; i < points.length - 1; i++) {
-    const midFraction = (cumulative[i]! + cumulative[i + 1]!) / 2 / totalLength;
+    const midFraction = useValues
+      ? (pointValues![i]! + pointValues![i + 1]!) / 2
+      : (cumulative![i]! + cumulative![i + 1]!) / 2 / totalLength;
     const rgb = lerpGradient(gradientStops, midFraction);
     strokeSegment(canvas, points[i]!, points[i + 1]!, radius, rgb, opacity);
   }

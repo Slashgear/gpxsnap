@@ -317,6 +317,8 @@ export async function renderGpx(
     points: track.points.map((p): [number, number] => [p.lon, p.lat]),
     color: track.color,
     name: track.name,
+    elevations: track.points.map((p) => p.elevation),
+    times: track.points.map((p) => p.time),
   }));
   const waypoints: [number, number][] = document.waypoints.map((w) => [w.lon, w.lat]);
 
