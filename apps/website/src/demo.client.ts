@@ -1,11 +1,33 @@
 import { renderGpx } from "gpxsnap/gpx";
 
+/**
+ * No API key needed for any of these — all volunteer-run, same "descriptive
+ * User-Agent, don't hammer it" etiquette as OSM's own default. CARTO/
+ * MapTiler/Thunderforest (which do need a key) are README-only recipes, not
+ * offered here: there's nowhere safe to hold a key in a public client-side
+ * demo. `tileUrl: undefined` for "osm" lets gpxsnap use its own default.
+ */
+// Attribution strings are drawn with gpxsnap's own hand-drawn bitmap font
+// (see font.ts), which has a limited character set — no "|", for instance.
+const TILE_STYLES: Record<string, { tileUrl: string | undefined; attribution: string }> = {
+  osm: { tileUrl: undefined, attribution: "© OpenStreetMap contributors" },
+  opentopomap: {
+    tileUrl: "https://a.tile.opentopomap.org/{z}/{x}/{y}.png",
+    attribution: "© OpenStreetMap contributors, SRTM - © OpenTopoMap (CC-BY-SA)",
+  },
+  cyclosm: {
+    tileUrl: "https://a.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png",
+    attribution: "© OpenStreetMap contributors - Map style: © CyclOSM",
+  },
+};
+
 interface SnippetOptions {
   width: number;
   height: number;
   pixelRatio: number;
   padding: number;
   simplify: number | undefined;
+  tileUrl: string | undefined;
   lineColor: string;
   lineWidth: number;
   lineOpacity: number;
@@ -25,6 +47,7 @@ function buildSnippet(options: SnippetOptions): string {
     `padding: ${options.padding},`,
   ];
   if (options.simplify !== undefined) lines.push(`simplify: ${options.simplify},`);
+  if (options.tileUrl !== undefined) lines.push(`tileUrl: ${JSON.stringify(options.tileUrl)},`);
   lines.push(
     `line: { color: ${JSON.stringify(options.lineColor)}, width: ${options.lineWidth}, opacity: ${options.lineOpacity} },`,
   );
@@ -55,6 +78,7 @@ const fileInput = document.getElementById("gpx-file") as HTMLInputElement;
 const widthInput = document.getElementById("width") as HTMLInputElement;
 const heightInput = document.getElementById("height") as HTMLInputElement;
 const colorInput = document.getElementById("line-color") as HTMLInputElement;
+const tileStyleInput = document.getElementById("tile-style") as HTMLSelectElement;
 const pixelRatioInput = document.getElementById("pixel-ratio") as HTMLSelectElement;
 const simplifyInput = document.getElementById("simplify") as HTMLInputElement;
 const paddingInput = document.getElementById("padding") as HTMLInputElement;
@@ -91,8 +115,9 @@ form.addEventListener("submit", async (event) => {
   try {
     const gpxContents = await file.text();
     const title = showTitleInput.checked ? titleInput.value.trim() || undefined : false;
+    const tileStyle = TILE_STYLES[tileStyleInput.value] ?? TILE_STYLES.osm!;
     const attribution = showAttributionInput.checked
-      ? attributionTextInput.value.trim() || true
+      ? attributionTextInput.value.trim() || tileStyle.attribution
       : false;
 
     const png = await renderGpx(gpxContents, {
@@ -101,6 +126,7 @@ form.addEventListener("submit", async (event) => {
       pixelRatio: Number(pixelRatioInput.value),
       padding: Number(paddingInput.value),
       simplify: Number(simplifyInput.value) || undefined,
+      tileUrl: tileStyle.tileUrl,
       line: {
         color: colorInput.value,
         width: Number(lineWidthInput.value),
@@ -135,6 +161,7 @@ form.addEventListener("submit", async (event) => {
       pixelRatio: Number(pixelRatioInput.value),
       padding: Number(paddingInput.value),
       simplify: Number(simplifyInput.value) || undefined,
+      tileUrl: tileStyle.tileUrl,
       lineColor: colorInput.value,
       lineWidth: Number(lineWidthInput.value),
       lineOpacity: Number(lineOpacityInput.value),

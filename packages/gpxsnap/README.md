@@ -276,20 +276,43 @@ Thunderforest).
 ### Other tile styles
 
 The default style is intentionally "busy" — it's the only one OSM's own
-infrastructure serves. A cleaner/more minimal look (Positron, Voyager,
-Toner-style, ...) always means a third-party tile provider on top of OSM's
-data, each with its own terms:
+infrastructure serves. Every alternative is a third-party tile provider on
+top of OSM's data, each with its own terms.
+
+**No API key needed** — same volunteer-run, "descriptive User-Agent, don't
+hammer it" etiquette as OSM's own default (both used in the website demo's
+basemap picker):
+
+```ts
+tileUrl: "https://a.tile.opentopomap.org/{z}/{x}/{y}.png", // OpenTopoMap — topographic (contour lines, terrain shading)
+attribution: "© OpenStreetMap contributors, SRTM - © OpenTopoMap (CC-BY-SA)",
+```
+
+```ts
+tileUrl: "https://a.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png", // CyclOSM — cycling-focused
+attribution: "© OpenStreetMap contributors - Map style: © CyclOSM",
+```
+
+**Needs an API key/account** — bring your own, held by your own code (never
+commit a key, and note the attribution badge's font doesn't support every
+punctuation character — see `font.ts` — so keep `|` etc. out of custom
+attribution strings, as the two recipes above already do):
 
 - [CARTO](https://carto.com/basemaps)'s Positron/Voyager tiles don't need an
   API key to fetch, but their free tier is scoped to "CARTO grantees"
   (nonprofit/education) — check their current terms before shipping it in a
   product.
+- [MapTiler](https://www.maptiler.com)'s "Topo" style is a clean alternative
+  to OpenTopoMap; 100k map loads/month free, no credit card, but needs an
+  account + API key.
 - [Stadia Maps](https://stadiamaps.com)' "Alidade Smooth" is clean and
   minimal, but needs a free API key for anything beyond limited local
   testing.
+- [Thunderforest](https://www.thunderforest.com)'s "Outdoors"/"Landscape"
+  styles are particularly relevant to GPS routes, but need a key.
 
-See `examples/custom-style.ts` for the latter — same `tileUrl`/`attribution`
-options, just pointed at a different provider.
+See `examples/custom-style.ts` for a Stadia-based example — same
+`tileUrl`/`attribution` options, just pointed at a different provider.
 
 ### Retina / high-DPI output (`pixelRatio`)
 
