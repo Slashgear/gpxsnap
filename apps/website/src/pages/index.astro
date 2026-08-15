@@ -83,10 +83,30 @@ const sampleSrc = `${import.meta.env.BASE_URL}sample.png`;
               Simplify (meters)
               <input type="number" id="simplify" value="0" min="0" step="1" />
             </label>
+            <label>
+              Padding (px)
+              <input type="number" id="padding" value="30" min="0" step="1" />
+            </label>
+            <label>
+              Line width (px)
+              <input type="number" id="line-width" value="3" min="1" step="1" />
+            </label>
+            <label>
+              Line opacity
+              <input type="number" id="line-opacity" value="1" min="0" max="1" step="0.1" />
+            </label>
           </div>
           <label>
             Title (optional)
             <input type="text" id="title" placeholder="Auto-detected from the GPX file's name" />
+          </label>
+          <label>
+            Custom attribution text (optional)
+            <input
+              type="text"
+              id="attribution-text"
+              placeholder="Defaults to OSM's required wording"
+            />
           </label>
           <div class="field-row checkbox-row">
             <label class="checkbox-label">
