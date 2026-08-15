@@ -135,13 +135,19 @@ tool for that.
 
 Each of `start` / `end` is a `MarkerStyle`:
 
-| Field       | Type     | Default                             |
-| ----------- | -------- | ----------------------------------- |
-| `radius`    | `number` | `6`                                 |
-| `color`     | `string` | `"#2ECC71"` start / `"#E74C3C"` end |
-| `ringColor` | `string` | `"#ffffff"`                         |
-| `ringWidth` | `number` | `2`                                 |
-| `opacity`   | `number` | `1`                                 |
+| Field       | Type          | Default                             |
+| ----------- | ------------- | ----------------------------------- |
+| `radius`    | `number`      | `6`                                 |
+| `color`     | `string`      | `"#2ECC71"` start / `"#E74C3C"` end |
+| `ringColor` | `string`      | `"#ffffff"`                         |
+| `ringWidth` | `number`      | `2`                                 |
+| `opacity`   | `number`      | `1`                                 |
+| `shape`     | `MarkerShape` | `"circle"`                          |
+
+`MarkerShape` is `"circle" | "square" | "diamond" | "triangle"` — built-in
+vector shapes (no image assets, same "hand-drawn, dependency-free" spirit as
+the bitmap font), sized to roughly the same visual weight as a circle of the
+same radius. The ring, if any, is drawn in the same shape, slightly larger.
 
 ### `DistanceMarkersStyle` (the `distanceMarkers` option)
 

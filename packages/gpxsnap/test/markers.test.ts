@@ -47,3 +47,18 @@ test("custom marker styles are honored", () => {
   });
   expect(pixelAt(canvas, 20, 20)).toEqual([0, 0, 255, 255]);
 });
+
+test("shape defaults to circle but honors an alternate shape, ring included", () => {
+  const circle = new Canvas(40, 40);
+  drawStartEndMarkers(circle, [{ x: 20, y: 20 }], {
+    start: { color: "#000000", ringWidth: 2, radius: 8 },
+  });
+  const square = new Canvas(40, 40);
+  drawStartEndMarkers(square, [{ x: 20, y: 20 }], {
+    start: { color: "#000000", ringWidth: 2, radius: 8, shape: "square" },
+  });
+
+  // Same corner point: outside a circle's ring, inside a square's (square) ring.
+  expect(pixelAt(circle, 27, 27)[3]).toBe(0);
+  expect(pixelAt(square, 27, 27)[3]).toBeGreaterThan(200);
+});

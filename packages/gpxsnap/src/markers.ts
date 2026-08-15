@@ -1,5 +1,7 @@
 import type { Canvas } from "./canvas.ts";
-import { drawDot, type Point } from "./line.ts";
+import { drawMarkerShape, type MarkerShape, type Point } from "./line.ts";
+
+export type { MarkerShape } from "./line.ts";
 
 export interface MarkerStyle {
   radius?: number;
@@ -7,6 +9,8 @@ export interface MarkerStyle {
   ringColor?: string;
   ringWidth?: number;
   opacity?: number;
+  /** Defaults to `"circle"` — the ring (if any) is drawn in the same shape, slightly larger. */
+  shape?: MarkerShape;
 }
 
 export interface MarkersStyle {
@@ -30,11 +34,19 @@ function drawMarker(
   const radius = (style.radius ?? DEFAULT_RADIUS) * pixelRatio;
   const ringWidth = (style.ringWidth ?? DEFAULT_RING_WIDTH) * pixelRatio;
   const opacity = style.opacity ?? 1;
+  const shape = style.shape ?? "circle";
 
   if (ringWidth > 0) {
-    drawDot(canvas, point, radius + ringWidth, style.ringColor ?? DEFAULT_RING_COLOR, opacity);
+    drawMarkerShape(
+      canvas,
+      point,
+      radius + ringWidth,
+      shape,
+      style.ringColor ?? DEFAULT_RING_COLOR,
+      opacity,
+    );
   }
-  drawDot(canvas, point, radius, style.color ?? defaultColor, opacity);
+  drawMarkerShape(canvas, point, radius, shape, style.color ?? defaultColor, opacity);
 }
 
 /**

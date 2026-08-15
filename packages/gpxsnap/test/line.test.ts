@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { Canvas } from "../src/canvas.ts";
-import { parseColor, strokePolyline } from "../src/line.ts";
+import { drawMarkerShape, parseColor, strokePolyline } from "../src/line.ts";
 
 function pixelAt(canvas: Canvas, x: number, y: number): [number, number, number, number] {
   const i = (y * canvas.width + x) * 4;
@@ -98,4 +98,51 @@ test("round joins fill the outer corner where two segments meet at an angle", ()
   expect(pixelAt(canvas, 13, 1)).toEqual([0, 0, 0, 0]);
   // The joint vertex itself is always fully covered.
   expect(pixelAt(canvas, 10, 5)).toEqual([0, 0, 0, 255]);
+});
+
+test("drawMarkerShape circle matches drawDot at the center and just outside the radius", () => {
+  const canvas = new Canvas(30, 30);
+  drawMarkerShape(canvas, { x: 15, y: 15 }, 8, "circle", "#000000");
+  expect(pixelAt(canvas, 15, 15)).toEqual([0, 0, 0, 255]); // center
+  expect(pixelAt(canvas, 15, 25)).toEqual([0, 0, 0, 0]); // 10px below, past radius 8
+});
+
+test("drawMarkerShape square fills its corners solidly, unlike a circle", () => {
+  const canvas = new Canvas(30, 30);
+  const radius = 8;
+  drawMarkerShape(canvas, { x: 15, y: 15 }, radius, "square", "#000000");
+  // (0.9r, 0.9r) from center is inside a square (Chebyshev distance 0.9r < r)
+  // but outside a circle of the same radius (Euclidean distance ~1.27r).
+  const x = Math.round(15 + radius * 0.9);
+  const y = Math.round(15 + radius * 0.9);
+  expect(pixelAt(canvas, x, y)[3]).toBeGreaterThan(200);
+});
+
+test("drawMarkerShape diamond excludes the corners a square fills", () => {
+  const canvas = new Canvas(30, 30);
+  const radius = 8;
+  drawMarkerShape(canvas, { x: 15, y: 15 }, radius, "diamond", "#000000");
+  // Same (0.9r, 0.9r) point: Manhattan distance 1.8r > r, so outside a diamond.
+  const x = Math.round(15 + radius * 0.9);
+  const y = Math.round(15 + radius * 0.9);
+  expect(pixelAt(canvas, x, y)[3]).toBe(0);
+  // But the diamond's own tip, straight out along an axis, is filled.
+  expect(pixelAt(canvas, 15 + radius - 3, 15)[3]).toBeGreaterThan(200);
+});
+
+test("drawMarkerShape triangle points up: filled near the apex, empty below the base", () => {
+  const canvas = new Canvas(30, 30);
+  const radius = 10;
+  drawMarkerShape(canvas, { x: 15, y: 15 }, radius, "triangle", "#000000");
+  expect(pixelAt(canvas, 15, 15 - radius + 1)[3]).toBeGreaterThan(200); // just below the apex
+  expect(pixelAt(canvas, 15, 15)[3]).toBeGreaterThan(200); // centroid area
+  expect(pixelAt(canvas, 15, 15 + radius)).toEqual([0, 0, 0, 0]); // straight below the base, outside
+});
+
+test("drawMarkerShape respects opacity", () => {
+  const canvas = new Canvas(30, 30);
+  drawMarkerShape(canvas, { x: 15, y: 15 }, 8, "square", "#000000", 0.5);
+  const [, , , alpha] = pixelAt(canvas, 15, 15);
+  expect(alpha).toBeGreaterThanOrEqual(127);
+  expect(alpha).toBeLessThanOrEqual(128);
 });
