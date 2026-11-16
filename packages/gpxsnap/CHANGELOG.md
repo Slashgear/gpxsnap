@@ -1,5 +1,40 @@
 # gpxsnap
 
+## 1.3.0
+
+### Minor Changes
+
+- fd5bbfb: Basemap presets, overlays and softer colors (#19):
+
+  - `basemap` picks a keyless tile preset with its attribution: `osm`, `esri-topo`, `esri-topo-relief`, `esri-light-gray`, `ign-plan`, `ign-plan-relief` (CLI: `--basemap`).
+  - `overlay: { tileUrl, opacity, blend, maxZoom }` composites a second tile layer (e.g. a hillshade with `blend: "multiply"`) onto the map before the route is drawn. Best-effort, and above its `maxZoom` the lower-zoom tile is cropped and upscaled.
+  - `tileFade` (0-1) mutes the base map's colors; `maxZoom` caps the framing zoom.
+  - The PNG decoder now reads 1/2/4-bit palette and grayscale tiles (as served by e.g. CARTO), non-PNG tiles (Esri's JPEG) are transcoded through `Bun.Image` on Bun, and the bitmap font gains `|`.
+  - In browsers, non-PNG tiles are decoded with the browser's own `createImageBitmap`, so the `esri-*` presets work there too (Node and Deno still read PNG tiles only).
+
+- ec04861: Richer route statistics (#16):
+
+  - `computeStatistics` now also returns raw min/max elevation, mean absolute grade, and — when points carry `<time>` — elapsed duration, moving time (segments slower than 0.5 m/s count as stopped) and average moving speed.
+  - New `statsFields` option on `renderGpx` picks what the stats badge shows, in order: `"distance"`, `"elevation"`, `"elevationRange"`, `"grade"`, `"duration"`, `"movingTime"`, `"speed"`, `"pace"`. The default (`["distance", "elevation"]`) keeps today's badge unchanged.
+  - `computeStatistics`, `formatStatistics` and the `RouteStatistics`/`StatsField` types are now exported from `gpxsnap/gpx`.
+  - The badge font gains `/` and `%` glyphs.
+
+- c4fd296: Harden rendering against bad input and flaky tile servers:
+
+  - `width`/`height` must now be integers from 1 to 4096 (NaN, 0, negative, fractional or huge values throw before any request), the physical canvas (`* pixelRatio`) is capped at 8192 px per side, and `padding` must be non-negative.
+  - New `maxTiles` option (default `100`): a render needing more tiles throws before fetching anything.
+  - Tile requests now time out (`tileTimeoutMs`, default 10 s) and are retried with backoff on network errors, timeouts, 429 and 5xx (`tileRetries`, default 2). `FetchLike` now receives an `AbortSignal`.
+  - New `onTileError: "skip"` leaves an unfetchable or undecodable tile blank instead of failing the whole render (default stays `"throw"`).
+  - New pluggable `tileCache` option plus a built-in `createMemoryTileCache()` LRU, to follow OSM's tile caching policy without adding dependencies.
+  - The PNG decoder rejects tiles that aren't a square standard/retina tile size, oversized images and truncated data from the IHDR, before allocating pixel buffers.
+
+- 52a58a8: Tileless / offline rendering (#17): `tileUrl: false` skips tile fetching entirely and draws the route on a transparent canvas, or on a solid color with the new `background` option (e.g. `"#ffffff"`). No network request is made, `maxTiles` doesn't apply, and attribution defaults off since there's no map data to credit (an explicit `attribution` is still stamped).
+- 2388d45: New `gpxsnap` command (#18): `bunx gpxsnap route.gpx -o out.png --width 1200 --stats` renders a GPX file from the command line. Built on `node:util`'s `parseArgs` (no new dependency); flags map onto `renderGpx` options, including `--no-tiles`/`--background` for offline renders and `--stats-fields` for the richer statistics. Run `gpxsnap --help` for the full list.
+
+### Patch Changes
+
+- 039c401: Text rendering no longer throws on accented characters: a GPX named "Sortie l'après-midi" used to fail with `unsupported character in text: "è"`. The bitmap font now has French and common Latin-1 accented letters (lower and upper case, plus ç, œ, æ, ß, ñ), extra symbols (`# @ & _ = * ; < > [ ] ° " €`), maps typographic quotes, dashes and non-breaking spaces to their plain forms, strips diacritics it has no glyph for (ő → o), and draws a visible box for anything else instead of throwing. Decomposed (NFD) input is normalized first.
+
 ## 1.2.0
 
 ### Minor Changes
