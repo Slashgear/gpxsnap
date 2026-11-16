@@ -16,7 +16,7 @@ import {
   TILE_SIZE,
 } from "./tiles.ts";
 import type { FetchLike, TileCache } from "./tiles.ts";
-import { strokePolyline, drawDot } from "./line.ts";
+import { strokePolyline, drawDot, parseColor } from "./line.ts";
 import type { StrokeStyle } from "./line.ts";
 import { drawStartEndMarkers } from "./markers.ts";
 import type { MarkersStyle } from "./markers.ts";
@@ -59,7 +59,10 @@ export interface RenderPipelineOptions {
   padding?: number;
   line?: StrokeStyle;
   markers?: boolean | MarkersStyle;
-  tileUrl?: string;
+  /** `false` skips tile fetching entirely (see `RenderRouteOptions.tileUrl`). */
+  tileUrl?: string | false;
+  /** Canvas fill drawn under everything (hex color, or `"transparent"`, the default). */
+  background?: string;
   attribution?: boolean | string;
   concurrency?: number;
   userAgent?: string;
@@ -132,6 +135,13 @@ function assertDimension(name: string, value: number): void {
   }
 }
 
+function resolveBackground(background: string | undefined): [number, number, number, number] {
+  if (background === undefined || background === "transparent") return [0, 0, 0, 0];
+  const [r, g, b] = parseColor(background);
+  if (![r, g, b].every(Number.isFinite)) throw new Error(`unsupported color format: ${background}`);
+  return [r, g, b, 255];
+}
+
 const WAYPOINT_COLOR = "#3498DB";
 const WAYPOINT_RADIUS = 4;
 const WAYPOINT_OPACITY = 0.9;
@@ -174,7 +184,10 @@ export async function renderPipeline(
   const bounds = boundsOf(allCoordinates);
   const zoom = fitZoom(bounds, { width, height, padding });
   const origin = canvasOrigin(bounds, zoom, width, height);
-  const tiles = tilesForViewport(origin, zoom, width, height);
+  const tileless = options.tileUrl === false;
+  // Resolved before any request so a bad color fails fast.
+  const backgroundFill = resolveBackground(options.background);
+  const tiles = tileless ? [] : tilesForViewport(origin, zoom, width, height);
   if (tiles.length > maxTiles) {
     throw new Error(
       `this render needs ${tiles.length} tiles, more than maxTiles (${maxTiles}); use a smaller width/height or raise maxTiles`,
@@ -182,7 +195,7 @@ export async function renderPipeline(
   }
 
   const fetched = await fetchTiles(tiles, {
-    tileUrlTemplate: options.tileUrl ?? DEFAULT_TILE_URL,
+    tileUrlTemplate: options.tileUrl || DEFAULT_TILE_URL,
     pixelRatio,
     concurrency: options.concurrency,
     userAgent: options.userAgent ?? DEFAULT_USER_AGENT,
@@ -199,7 +212,11 @@ export async function renderPipeline(
   const expectedTileSizes =
     retinaMultiple >= 2 ? [TILE_SIZE, TILE_SIZE * retinaMultiple] : [TILE_SIZE];
 
-  const canvas = new Canvas(Math.round(width * pixelRatio), Math.round(height * pixelRatio));
+  const canvas = new Canvas(
+    Math.round(width * pixelRatio),
+    Math.round(height * pixelRatio),
+    backgroundFill,
+  );
   const physicalTileSize = TILE_SIZE * pixelRatio;
   for (const tile of tiles) {
     const bytes = fetched.get(`${tile.z}/${tile.x}/${tile.y}`);
@@ -304,7 +321,9 @@ export async function renderPipeline(
     drawBadge(canvas, options.statsText, "top-right", options.statsStyle, pixelRatio);
   }
 
-  const attribution = options.attribution ?? true;
+  // Without tiles there is no map data to credit, so attribution defaults off
+  // (an explicit `attribution` value is still honored).
+  const attribution = options.attribution ?? !tileless;
 
   if (options.elevationProfilePoints) {
     // Reserve room for the attribution badge (bottom-right, drawn after this)
