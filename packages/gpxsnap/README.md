@@ -99,6 +99,22 @@ for rendering (see `simplify` below), but for trimming, merging, or other
 edits before rendering, [gpx.studio](https://gpx.studio/) is a great free
 tool for that.
 
+### Command line
+
+For quick previews, scripts or CI, the package ships a `gpxsnap` command:
+
+```sh
+bunx gpxsnap route.gpx -o route.png --width 1200 --height 630 --stats
+bunx gpxsnap route.gpx --no-tiles --background "#ffffff"   # offline, no basemap
+bunx gpxsnap route.gpx --stats-fields distance,movingTime,pace --elevation-profile
+```
+
+It maps flags onto the `renderGpx` options below (`--width`, `--height`,
+`--pixel-ratio`, `--format`, `--tile-url`, `--no-tiles`, `--background`,
+`--line-color`, `--color-by`, `--title`, `--stats`, `--legend`, ...). Without
+`-o`, the image is written next to the input with the format's extension.
+Run `bunx gpxsnap --help` for the full list.
+
 ## API
 
 ### `renderRoute(options): Promise<Uint8Array>`
