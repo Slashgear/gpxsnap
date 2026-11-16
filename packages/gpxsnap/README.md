@@ -206,11 +206,20 @@ above) and three GPX-only options that need data (per-point elevation, or
 multiple named tracks) `renderRoute` doesn't have. Exported from
 `gpxsnap/gpx`.
 
-| Option             | Type                               | Default | Notes                                                                                                          |
-| ------------------ | ---------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- |
-| `stats`            | `boolean \| BadgeStyle`            | `false` | badge (top-right) with distance, and — if at least half the points have `<ele>` — smoothed elevation gain/loss |
-| `elevationProfile` | `boolean \| ElevationProfileStyle` | `false` | mini filled line chart along the bottom strip; silently omitted with fewer than 2 elevation points             |
-| `legend`           | `boolean \| LegendStyle`           | `false` | color-swatch-and-name key (bottom-left), one row per track; only drawn with more than one track                |
+| Option             | Type                               | Default                     | Notes                                                                                                          |
+| ------------------ | ---------------------------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `stats`            | `boolean \| BadgeStyle`            | `false`                     | badge (top-right) with distance, and — if at least half the points have `<ele>` — smoothed elevation gain/loss |
+| `statsFields`      | `StatsField[]`                     | `["distance", "elevation"]` | which stats the badge shows, in order (see below)                                                              |
+| `elevationProfile` | `boolean \| ElevationProfileStyle` | `false`                     | mini filled line chart along the bottom strip; silently omitted with fewer than 2 elevation points             |
+| `legend`           | `boolean \| LegendStyle`           | `false`                     | color-swatch-and-name key (bottom-left), one row per track; only drawn with more than one track                |
+
+`StatsField` is one of `"distance"`, `"elevation"` (gain/loss),
+`"elevationRange"` (raw min/max), `"grade"` (mean absolute grade, gain + loss
+over distance) and, when points carry `<time>`, `"duration"` (elapsed),
+`"movingTime"` (segments slower than 0.5 m/s count as stopped), `"speed"`
+(moving average, km/h) and `"pace"` (min/km). A field without the data it
+needs is left out. The numbers themselves are available from
+`computeStatistics(tracks)`, exported from `gpxsnap/gpx`.
 
 `BadgeStyle` is `{ scale?, padding?, textColor?, backgroundColor?,
 backgroundOpacity? }`. `ElevationProfileStyle` is `{ height?, lineColor?,

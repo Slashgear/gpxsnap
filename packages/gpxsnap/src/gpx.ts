@@ -4,6 +4,10 @@ import type { RenderTrack } from "./render-pipeline.ts";
 import { simplifyCoordinates } from "./simplify.ts";
 import type { BadgeStyle } from "./badge.ts";
 import { computeStatistics, formatStatistics } from "./statistics.ts";
+import type { StatsField } from "./statistics.ts";
+
+export { computeStatistics, formatStatistics } from "./statistics.ts";
+export type { RouteStatistics, StatsField } from "./statistics.ts";
 import { buildElevationProfile } from "./elevation-chart.ts";
 import type { ElevationProfileStyle } from "./elevation-chart.ts";
 import type { LegendStyle } from "./legend.ts";
@@ -253,6 +257,15 @@ export type RenderGpxOptions = Omit<RenderRouteOptions, "coordinates"> & {
    */
   stats?: boolean | BadgeStyle;
   /**
+   * Which stats the badge shows, in order (default `["distance",
+   * "elevation"]`). Also available: `"elevationRange"` (min/max),
+   * `"grade"` (mean absolute grade), and, when points carry `<time>`,
+   * `"duration"`, `"movingTime"`, `"speed"` (km/h) and `"pace"` (min/km).
+   * Fields without the data they need are silently omitted. Only used
+   * when `stats` is set.
+   */
+  statsFields?: readonly StatsField[];
+  /**
    * Draw a mini elevation-profile chart along the bottom of the image (a
    * translucent strip, map still visible underneath). Needs `<ele>` data;
    * silently omitted if a track has fewer than 2 points with elevation.
@@ -304,7 +317,9 @@ export async function renderGpx(
 
   const title = options.title !== undefined ? options.title : (tracks[0]?.name ?? document.name);
 
-  const statsText = options.stats ? formatStatistics(computeStatistics(tracks)) : undefined;
+  const statsText = options.stats
+    ? formatStatistics(computeStatistics(tracks), options.statsFields)
+    : undefined;
   const statsStyle = typeof options.stats === "object" ? options.stats : undefined;
 
   const elevationProfilePoints = options.elevationProfile
