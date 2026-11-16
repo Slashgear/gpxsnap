@@ -1,0 +1,3 @@
+[fmt]
+# Matches the previous oxfmt defaults, so switching formatters produced no diff.
+printWidth = 100

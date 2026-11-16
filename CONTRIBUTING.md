@@ -22,9 +22,9 @@ From the repo root:
 
 ```bash
 bun test               # tests must pass (across all workspace packages)
-bun run typecheck       # tsc --noEmit, run in every package that defines it
+bun run typecheck       # bun check, run in every package that defines it
 bun run lint            # oxlint
-bun run fmt:check       # oxfmt --check — run `bun run fmt` to fix
+bun run fmt:check       # bun fmt --check — run `bun run fmt` to fix
 ```
 
 All four run in CI on every PR; a failing one will block merge.

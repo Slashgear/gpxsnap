@@ -6,8 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.tool_input.file_path' | { read -r f; case \"$f\" in *.ts|*.tsx|*.js|*.jsx|*.json|*.md) bunx oxfmt --write \"$f\" >/dev/null 2>&1 ;; esac; } || true",
-            "statusMessage": "Formatting with oxfmt..."
+            "command": "jq -r '.tool_input.file_path' | { read -r f; case \"$f\" in *.ts|*.tsx|*.js|*.jsx|*.json|*.md) bun fmt \"$f\" >/dev/null 2>&1 ;; esac; } || true",
+            "statusMessage": "Formatting with bun fmt..."
           },
           {
             "type": "command",
