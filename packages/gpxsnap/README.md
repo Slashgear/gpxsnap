@@ -263,9 +263,9 @@ using only Web-standard APIs that Bun (and modern Node) already ship.
 ```bash
 bun install
 bun test          # run tests
-bun run typecheck  # tsc --noEmit
+bun run typecheck  # bun check
 bun run lint       # oxlint
-bun run fmt:check  # oxfmt --check
+bun run fmt:check  # bun fmt --check
 ```
 
 Test fixtures in `test/fixtures/` are real tiles pulled from

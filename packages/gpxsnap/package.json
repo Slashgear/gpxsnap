@@ -38,10 +38,10 @@
     }
   },
   "scripts": {
-    "fmt": "oxfmt .",
-    "fmt:check": "oxfmt --check .",
+    "fmt": "bun fmt",
+    "fmt:check": "bun fmt --check",
     "lint": "oxlint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bun check",
     "test": "bun test",
     "test:e2e:bun": "bun test/e2e/render.e2e.ts",
     "test:e2e:node": "node test/e2e/render.e2e.ts",

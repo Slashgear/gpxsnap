@@ -18,9 +18,9 @@ This is a Bun workspace — one install at the root covers both packages.
 ```bash
 bun install
 bun test          # run tests across all packages
-bun run typecheck  # tsc --noEmit, in every package that defines it
+bun run typecheck  # bun check, in every package that defines it
 bun run lint       # oxlint
-bun run fmt:check  # oxfmt --check
+bun run fmt:check  # bun fmt --check
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR, and
