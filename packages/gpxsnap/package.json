@@ -25,6 +25,9 @@
     "src"
   ],
   "type": "module",
+  "bin": {
+    "gpxsnap": "./src/cli.ts"
+  },
   "module": "src/index.ts",
   "types": "./src/index.ts",
   "exports": {
