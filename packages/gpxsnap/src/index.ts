@@ -4,6 +4,7 @@ import type { MarkersStyle } from "./markers.ts";
 import type { DistanceMarkersStyle } from "./distance-markers.ts";
 import { simplifyCoordinates } from "./simplify.ts";
 import { renderPipeline } from "./render-pipeline.ts";
+import type { BasemapName, OverlayLayer } from "./basemaps.ts";
 
 export type LineStyle = StrokeStyle;
 export type { MarkerStyle, MarkersStyle, MarkerShape } from "./markers.ts";
@@ -40,6 +41,31 @@ export interface RenderRouteOptions {
    * then defaults off, since there's no map data to credit.
    */
   tileUrl?: string | false;
+  /**
+   * Built-in, keyless tile preset: `"osm"`, `"esri-topo"`,
+   * `"esri-topo-relief"`, `"esri-light-gray"`, `"ign-plan"` or
+   * `"ign-plan-relief"`. Fills in `tileUrl`, `attribution`, `overlay`,
+   * `tileFade` and `maxZoom`; any of those you also pass wins. Esri tiles are
+   * JPEG, so the `esri-*` presets need Bun; `ign-*` only cover France.
+   */
+  basemap?: BasemapName;
+  /**
+   * A second tile layer composited onto each base tile before the route is
+   * drawn, e.g. a hillshade with `blend: "multiply"`. Best-effort: a tile the
+   * overlay can't provide leaves the base map as is there. `false` removes a
+   * preset's overlay.
+   */
+  overlay?: OverlayLayer | false;
+  /**
+   * 0-1. Softens the base tiles' colors (partly desaturated, lifted toward
+   * white) so the route stands out. Defaults to `0`, or the preset's value.
+   */
+  tileFade?: number;
+  /**
+   * Highest zoom the route is framed at, for tile sources that stop before
+   * zoom 19 (a short route is then shown smaller instead of on blank tiles).
+   */
+  maxZoom?: number;
   /**
    * Hex color filling the canvas under everything (e.g. `"#ffffff"`), or
    * `"transparent"` (the default). Mostly useful with `tileUrl: false`; with
@@ -123,5 +149,7 @@ export async function renderRoute(options: RenderRouteOptions): Promise<Uint8Arr
 }
 
 export type { DecodedImage } from "./png/decode.ts";
+export type { Basemap, BasemapName, OverlayLayer } from "./basemaps.ts";
+export { BASEMAPS, BASEMAP_NAMES } from "./basemaps.ts";
 export type { FetchLike, TileCache } from "./tiles.ts";
 export { createMemoryTileCache } from "./tiles.ts";

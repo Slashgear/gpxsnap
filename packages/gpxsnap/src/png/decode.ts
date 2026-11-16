@@ -96,9 +96,12 @@ function paeth(a: number, b: number, c: number): number {
   return c;
 }
 
-/** Reverses the five PNG scanline filters, in place, over the raw (post-inflate) IDAT bytes. */
-function unfilter(raw: Uint8Array, width: number, height: number, bpp: number): Uint8Array {
-  const stride = width * bpp;
+/**
+ * Reverses the five PNG scanline filters over the raw (post-inflate) IDAT bytes.
+ * `stride` is the unfiltered row length in bytes; `bpp` is the filter's byte
+ * distance to the "left" pixel (1 for sub-byte pixels, per the PNG spec).
+ */
+function unfilter(raw: Uint8Array, stride: number, height: number, bpp: number): Uint8Array {
   const out = new Uint8Array(stride * height);
   let src = 0;
   for (let y = 0; y < height; y++) {
@@ -134,6 +137,33 @@ function unfilter(raw: Uint8Array, width: number, height: number, bpp: number): 
       out[rowStart + x] = value & 0xff;
     }
     src += stride;
+  }
+  return out;
+}
+
+/**
+ * Expands 1-, 2- or 4-bit samples (packed most-significant-bit first, each
+ * row padded to a whole byte) to one byte per sample. Palette indices keep
+ * their value; grayscale levels are scaled up to the full 0-255 range.
+ */
+function unpackSubByte(
+  packed: Uint8Array,
+  width: number,
+  height: number,
+  bitDepth: number,
+  colorType: ColorType,
+): Uint8Array {
+  const stride = Math.ceil((width * bitDepth) / 8);
+  const mask = (1 << bitDepth) - 1;
+  const scale = colorType === ColorType.Grayscale ? 255 / mask : 1;
+  const out = new Uint8Array(width * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const bit = x * bitDepth;
+      const byte = packed[y * stride + (bit >> 3)]!;
+      const value = (byte >> (8 - bitDepth - (bit & 7))) & mask;
+      out[y * width + x] = value * scale;
+    }
   }
   return out;
 }
@@ -214,8 +244,9 @@ export interface DecodePngOptions {
 }
 
 /**
- * Decodes a non-interlaced, 8-bit-depth PNG (color type 0, 2, 3, 4, or 6) into raw RGBA8 pixels.
- * This covers every shape a slippy-map XYZ tile server emits.
+ * Decodes a non-interlaced PNG into raw RGBA8 pixels: 8-bit color types 0, 2,
+ * 3, 4 and 6, plus 1/2/4-bit palette and grayscale images (the compact
+ * paletted tiles some providers, e.g. CARTO, serve).
  */
 export async function decodePng(
   bytes: Uint8Array,
@@ -245,8 +276,13 @@ export async function decodePng(
     );
   }
 
-  if (ihdr.bitDepth !== 8) {
-    throw new Error(`unsupported PNG bit depth ${ihdr.bitDepth}, only 8-bit is supported`);
+  const subByte =
+    (ihdr.colorType === ColorType.Palette || ihdr.colorType === ColorType.Grayscale) &&
+    (ihdr.bitDepth === 1 || ihdr.bitDepth === 2 || ihdr.bitDepth === 4);
+  if (ihdr.bitDepth !== 8 && !subByte) {
+    throw new Error(
+      `unsupported PNG bit depth ${ihdr.bitDepth} for color type ${ihdr.colorType}, only 8-bit (or 1/2/4-bit palette and grayscale) is supported`,
+    );
   }
   if (ihdr.interlace !== 0) {
     throw new Error("interlaced PNGs are not supported");
@@ -267,13 +303,17 @@ export async function decodePng(
 
   const channels = channelsForColorType(ihdr.colorType);
   const inflated = await inflate(idat);
-  const expectedLength = (ihdr.width * channels + 1) * ihdr.height;
+  const stride = Math.ceil((ihdr.width * channels * ihdr.bitDepth) / 8);
+  const expectedLength = (stride + 1) * ihdr.height;
   if (inflated.length < expectedLength) {
     throw new Error(
       `PNG image data is truncated: got ${inflated.length} bytes, expected ${expectedLength}`,
     );
   }
-  const raw = unfilter(inflated, ihdr.width, ihdr.height, channels);
+  const unfiltered = unfilter(inflated, stride, ihdr.height, subByte ? 1 : channels);
+  const raw = subByte
+    ? unpackSubByte(unfiltered, ihdr.width, ihdr.height, ihdr.bitDepth, ihdr.colorType)
+    : unfiltered;
   const pixels = toRgba(
     raw,
     ihdr.width,

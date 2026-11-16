@@ -1,5 +1,5 @@
 import { Canvas, upscaleNearestNeighbor } from "./canvas.ts";
-import { decodePng } from "./png/decode.ts";
+import type { DecodedImage } from "./png/decode.ts";
 import { encodePng } from "./png/encode.ts";
 import {
   encodeWithBunImage,
@@ -15,7 +15,10 @@ import {
   tilesForViewport,
   TILE_SIZE,
 } from "./tiles.ts";
-import type { FetchLike, TileCache } from "./tiles.ts";
+import type { FetchLike, TileCache, TileRequest } from "./tiles.ts";
+import { resolveBasemap } from "./basemaps.ts";
+import type { BasemapName, OverlayLayer } from "./basemaps.ts";
+import { compositeOverlay, decodeTile, fadeTile, resampleRegion } from "./tile-layers.ts";
 import { strokePolyline, drawDot, parseColor } from "./line.ts";
 import type { StrokeStyle } from "./line.ts";
 import { drawStartEndMarkers } from "./markers.ts";
@@ -61,6 +64,14 @@ export interface RenderPipelineOptions {
   markers?: boolean | MarkersStyle;
   /** `false` skips tile fetching entirely (see `RenderRouteOptions.tileUrl`). */
   tileUrl?: string | false;
+  /** Built-in preset filling in `tileUrl`, `attribution`, `overlay`, `tileFade` and `maxZoom` (see basemaps.ts). */
+  basemap?: BasemapName;
+  /** Second tile layer composited onto the base map (see `RenderRouteOptions.overlay`). */
+  overlay?: OverlayLayer | false;
+  /** 0-1, softens the base tiles' colors (see `RenderRouteOptions.tileFade`). */
+  tileFade?: number;
+  /** Highest zoom the route is framed at (see `RenderRouteOptions.maxZoom`). */
+  maxZoom?: number;
   /** Canvas fill drawn under everything (hex color, or `"transparent"`, the default). */
   background?: string;
   attribution?: boolean | string;
@@ -135,6 +146,23 @@ function assertDimension(name: string, value: number): void {
   }
 }
 
+function assertUnitInterval(name: string, value: number): void {
+  if (!(value >= 0 && value <= 1)) throw new Error(`${name} must be between 0 and 1, got ${value}`);
+}
+
+function assertZoom(name: string, value: number): void {
+  if (!Number.isInteger(value) || value < 0 || value > 24) {
+    throw new Error(`${name} must be an integer between 0 and 24, got ${value}`);
+  }
+}
+
+/** The tile at `maxZoom` covering `tile`, or `tile` itself when it's already at or below it. */
+function overlaySourceTile(tile: TileRequest, maxZoom: number | undefined): TileRequest {
+  if (maxZoom === undefined || tile.z <= maxZoom) return tile;
+  const shift = tile.z - maxZoom;
+  return { z: maxZoom, x: tile.x >> shift, y: tile.y >> shift };
+}
+
 function resolveBackground(background: string | undefined): [number, number, number, number] {
   if (background === undefined || background === "transparent") return [0, 0, 0, 0];
   const [r, g, b] = parseColor(background);
@@ -178,13 +206,30 @@ export async function renderPipeline(
   const format = options.format ?? "png";
   if (format !== "png" && !isBunImageAvailable()) throw unsupportedFormatError(format);
 
+  const preset = options.basemap !== undefined ? resolveBasemap(options.basemap) : undefined;
+  const tileUrlTemplate = options.tileUrl ?? preset?.tileUrl;
+  const tileless = tileUrlTemplate === false;
+  const overlay =
+    tileless || options.overlay === false ? undefined : (options.overlay ?? preset?.overlay);
+  const tileFade = options.tileFade ?? preset?.tileFade ?? 0;
+  assertUnitInterval("tileFade", tileFade);
+  const maxZoom = options.maxZoom ?? preset?.maxZoom;
+  if (maxZoom !== undefined) assertZoom("maxZoom", maxZoom);
+  if (overlay) {
+    if (!overlay.tileUrl) throw new Error("overlay.tileUrl is required");
+    assertUnitInterval("overlay.opacity", overlay.opacity ?? 1);
+    if (overlay.maxZoom !== undefined) assertZoom("overlay.maxZoom", overlay.maxZoom);
+    if (overlay.blend !== undefined && overlay.blend !== "normal" && overlay.blend !== "multiply") {
+      throw new Error(`overlay.blend must be "normal" or "multiply", got ${String(overlay.blend)}`);
+    }
+  }
+
   // Framing (zoom/bounds/tiles) is computed in logical pixel space, unaffected by
   // pixelRatio, so the same geographic area is shown regardless of output resolution.
   const allCoordinates: LonLat[] = [...tracks.flatMap((t) => t.points), ...waypoints];
   const bounds = boundsOf(allCoordinates);
-  const zoom = fitZoom(bounds, { width, height, padding });
+  const zoom = fitZoom(bounds, { width, height, padding, maxZoom });
   const origin = canvasOrigin(bounds, zoom, width, height);
-  const tileless = options.tileUrl === false;
   // Resolved before any request so a bad color fails fast.
   const backgroundFill = resolveBackground(options.background);
   const tiles = tileless ? [] : tilesForViewport(origin, zoom, width, height);
@@ -194,17 +239,41 @@ export async function renderPipeline(
     );
   }
 
-  const fetched = await fetchTiles(tiles, {
-    tileUrlTemplate: options.tileUrl || DEFAULT_TILE_URL,
+  const fetchOptions = {
     pixelRatio,
     concurrency: options.concurrency,
     userAgent: options.userAgent ?? DEFAULT_USER_AGENT,
     fetchImpl: options.fetchImpl,
     timeoutMs: options.tileTimeoutMs,
     retries: options.tileRetries,
-    onTileError,
     tileCache: options.tileCache,
-  });
+  };
+  // The overlay is best-effort: a tile it can't provide (e.g. outside its
+  // coverage) just leaves the base map unshaded there.
+  const overlayTiles = overlay
+    ? [
+        ...new Map(
+          tiles.map((tile) => {
+            const source = overlaySourceTile(tile, overlay.maxZoom);
+            return [`${source.z}/${source.x}/${source.y}`, source] as const;
+          }),
+        ).values(),
+      ]
+    : [];
+  const [fetched, fetchedOverlay] = await Promise.all([
+    fetchTiles(tiles, {
+      ...fetchOptions,
+      tileUrlTemplate: tileUrlTemplate || DEFAULT_TILE_URL,
+      onTileError,
+    }),
+    overlay
+      ? fetchTiles(overlayTiles, {
+          ...fetchOptions,
+          tileUrlTemplate: overlay.tileUrl,
+          onTileError: "skip",
+        })
+      : new Map<string, Uint8Array>(),
+  ]);
 
   // A tile arrives either at the standard size or, from a `{r}` template, at
   // its retina multiple. Anything else is a misbehaving server or a wrong URL.
@@ -218,12 +287,26 @@ export async function renderPipeline(
     backgroundFill,
   );
   const physicalTileSize = TILE_SIZE * pixelRatio;
+  const decodedOverlays = new Map<string, Promise<DecodedImage | undefined>>();
+  const overlayImageFor = (tile: TileRequest) => {
+    const source = overlaySourceTile(tile, overlay?.maxZoom);
+    const key = `${source.z}/${source.x}/${source.y}`;
+    let decoded = decodedOverlays.get(key);
+    if (!decoded) {
+      const bytes = fetchedOverlay.get(key);
+      decoded = bytes
+        ? decodeTile(bytes, expectedTileSizes).catch(() => undefined)
+        : Promise.resolve(undefined);
+      decodedOverlays.set(key, decoded);
+    }
+    return { source, decoded };
+  };
   for (const tile of tiles) {
     const bytes = fetched.get(`${tile.z}/${tile.x}/${tile.y}`);
     if (!bytes) continue;
     let decoded;
     try {
-      decoded = await decodePng(bytes, { expectedSizes: expectedTileSizes });
+      decoded = await decodeTile(bytes, expectedTileSizes);
     } catch (error) {
       if (onTileError === "skip") continue;
       const reason = error instanceof Error ? error.message : String(error);
@@ -238,6 +321,24 @@ export async function renderPipeline(
       decoded.width === physicalTileSize
         ? decoded
         : upscaleNearestNeighbor(decoded, physicalTileSize / decoded.width);
+    fadeTile(image, tileFade);
+    if (overlay) {
+      const { source, decoded: overlayPromise } = overlayImageFor(tile);
+      const overlayImage = await overlayPromise;
+      if (overlayImage) {
+        // A lower-zoom overlay tile covers 2^(zoom difference) base tiles per side: crop this one's share.
+        const span = 2 ** (tile.z - source.z);
+        const size = overlayImage.width / span;
+        const region = resampleRegion(
+          overlayImage,
+          (tile.x - source.x * span) * size,
+          (tile.y - source.y * span) * size,
+          size,
+          physicalTileSize,
+        );
+        compositeOverlay(image, region, overlay.opacity ?? 1, overlay.blend ?? "normal");
+      }
+    }
     const destX = Math.round((tile.x * TILE_SIZE - origin.x) * pixelRatio);
     const destY = Math.round((tile.y * TILE_SIZE - origin.y) * pixelRatio);
     canvas.blit(image, destX, destY);
@@ -322,8 +423,8 @@ export async function renderPipeline(
   }
 
   // Without tiles there is no map data to credit, so attribution defaults off
-  // (an explicit `attribution` value is still honored).
-  const attribution = options.attribution ?? !tileless;
+  // (an explicit `attribution` value is still honored). A preset brings its own text.
+  const attribution = options.attribution ?? (tileless ? false : (preset?.attribution ?? true));
 
   if (options.elevationProfilePoints) {
     // Reserve room for the attribution badge (bottom-right, drawn after this)

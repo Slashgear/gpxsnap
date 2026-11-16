@@ -1,16 +1,36 @@
 import { renderGpx } from "gpxsnap/gpx";
+import { BASEMAPS } from "gpxsnap";
+import type { BasemapName } from "gpxsnap";
 
 /**
- * No API key needed for any of these — all volunteer-run, same "descriptive
- * User-Agent, don't hammer it" etiquette as OSM's own default. CARTO/
- * MapTiler/Thunderforest (which do need a key) are README-only recipes, not
- * offered here: there's nowhere safe to hold a key in a public client-side
- * demo. `tileUrl: undefined` for "osm" lets gpxsnap use its own default.
+ * No API key needed for any of these. The built-in `basemap` presets (Esri,
+ * IGN) carry their own tile URL, relief overlay and attribution; the others
+ * are plain `tileUrl` recipes. CARTO/MapTiler/Thunderforest (which do need a
+ * key) are README-only, not offered here: there's nowhere safe to hold a key
+ * in a public client-side demo. "none" renders without any basemap.
  */
 // Attribution strings are drawn with gpxsnap's own hand-drawn bitmap font
-// (see font.ts), which has a limited character set — no "|", for instance.
-const TILE_STYLES: Record<string, { tileUrl: string | undefined; attribution: string }> = {
-  osm: { tileUrl: undefined, attribution: "© OpenStreetMap contributors" },
+// (see font.ts), which has a limited character set — no accents, for instance.
+interface TileStyle {
+  basemap?: BasemapName;
+  tileUrl?: string | false;
+  background?: string;
+  attribution: string;
+}
+
+const preset = (basemap: BasemapName): TileStyle => ({
+  basemap,
+  attribution: BASEMAPS[basemap].attribution,
+});
+
+const TILE_STYLES: Record<string, TileStyle> = {
+  osm: { attribution: "© OpenStreetMap contributors" },
+  "esri-topo": preset("esri-topo"),
+  "esri-topo-relief": preset("esri-topo-relief"),
+  "esri-light-gray": preset("esri-light-gray"),
+  "ign-plan": preset("ign-plan"),
+  "ign-plan-relief": preset("ign-plan-relief"),
+  none: { tileUrl: false, background: "#ffffff", attribution: "" },
   opentopomap: {
     tileUrl: "https://a.tile.opentopomap.org/{z}/{x}/{y}.png",
     attribution: "© OpenStreetMap contributors, SRTM - © OpenTopoMap (CC-BY-SA)",
@@ -27,7 +47,8 @@ interface SnippetOptions {
   pixelRatio: number;
   padding: number;
   simplify: number | undefined;
-  tileUrl: string | undefined;
+  tileStyle: TileStyle;
+  tileFade: number | undefined;
   lineColor: string;
   lineWidth: number;
   lineOpacity: number;
@@ -47,7 +68,11 @@ function buildSnippet(options: SnippetOptions): string {
     `padding: ${options.padding},`,
   ];
   if (options.simplify !== undefined) lines.push(`simplify: ${options.simplify},`);
-  if (options.tileUrl !== undefined) lines.push(`tileUrl: ${JSON.stringify(options.tileUrl)},`);
+  const { basemap, tileUrl, background } = options.tileStyle;
+  if (basemap !== undefined) lines.push(`basemap: ${JSON.stringify(basemap)},`);
+  if (tileUrl !== undefined) lines.push(`tileUrl: ${JSON.stringify(tileUrl)},`);
+  if (background !== undefined) lines.push(`background: ${JSON.stringify(background)},`);
+  if (options.tileFade !== undefined) lines.push(`tileFade: ${options.tileFade},`);
   lines.push(
     `line: { color: ${JSON.stringify(options.lineColor)}, width: ${options.lineWidth}, opacity: ${options.lineOpacity} },`,
   );
@@ -80,6 +105,7 @@ const heightInput = document.getElementById("height") as HTMLInputElement;
 const colorInput = document.getElementById("line-color") as HTMLInputElement;
 const tileStyleInput = document.getElementById("tile-style") as HTMLSelectElement;
 const pixelRatioInput = document.getElementById("pixel-ratio") as HTMLSelectElement;
+const tileFadeInput = document.getElementById("tile-fade") as HTMLInputElement;
 const simplifyInput = document.getElementById("simplify") as HTMLInputElement;
 const paddingInput = document.getElementById("padding") as HTMLInputElement;
 const lineWidthInput = document.getElementById("line-width") as HTMLInputElement;
@@ -116,9 +142,9 @@ form.addEventListener("submit", async (event) => {
     const gpxContents = await file.text();
     const title = showTitleInput.checked ? titleInput.value.trim() || undefined : false;
     const tileStyle = TILE_STYLES[tileStyleInput.value] ?? TILE_STYLES.osm!;
-    const attribution = showAttributionInput.checked
-      ? attributionTextInput.value.trim() || tileStyle.attribution
-      : false;
+    const attributionText = attributionTextInput.value.trim() || tileStyle.attribution;
+    const attribution = showAttributionInput.checked && attributionText ? attributionText : false;
+    const tileFade = tileFadeInput.value === "" ? undefined : Number(tileFadeInput.value);
 
     const png = await renderGpx(gpxContents, {
       width: Number(widthInput.value),
@@ -126,7 +152,10 @@ form.addEventListener("submit", async (event) => {
       pixelRatio: Number(pixelRatioInput.value),
       padding: Number(paddingInput.value),
       simplify: Number(simplifyInput.value) || undefined,
+      basemap: tileStyle.basemap,
       tileUrl: tileStyle.tileUrl,
+      background: tileStyle.background,
+      tileFade,
       line: {
         color: colorInput.value,
         width: Number(lineWidthInput.value),
@@ -161,7 +190,8 @@ form.addEventListener("submit", async (event) => {
       pixelRatio: Number(pixelRatioInput.value),
       padding: Number(paddingInput.value),
       simplify: Number(simplifyInput.value) || undefined,
-      tileUrl: tileStyle.tileUrl,
+      tileStyle,
+      tileFade,
       lineColor: colorInput.value,
       lineWidth: Number(lineWidthInput.value),
       lineOpacity: Number(lineOpacityInput.value),

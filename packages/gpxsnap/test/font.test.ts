@@ -46,3 +46,9 @@ test("drawText renders route-title-style punctuation without throwing", () => {
   const canvas = new Canvas(200, 20);
   expect(() => drawText(canvas, "Antoine's ride (loop)!", 2, 2)).not.toThrow();
 });
+
+test("drawText renders a pipe, as tile-provider attributions often use one", () => {
+  const canvas = new Canvas(400, 20);
+  drawText(canvas, "© OpenStreetMap | © OpenTopoMap", 2, 2, { color: "#ffffff" });
+  expect(isBlank(canvas)).toBe(false);
+});
