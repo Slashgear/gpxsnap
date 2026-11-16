@@ -97,3 +97,22 @@ test("renderGpx supports tileless rendering with stats and a single-point track"
   const image = await decodePng(png);
   expect(pixelAt(image, 199, 119)).toEqual([255, 255, 255, 255]);
 });
+
+test('renderGpx renders a Strava GPX whose name has accents (e.g. "après-midi")', async () => {
+  const gpx = await Bun.file("test/fixtures/sortie-apres-midi.gpx").text();
+  const png = await renderGpx(gpx, {
+    width: 300,
+    height: 200,
+    tileUrl: false,
+    background: "#ffffff",
+    fetchImpl: failingFetch,
+  });
+  const image = await decodePng(png);
+  expect(image.width).toBe(300);
+  // The title badge sits in the top-left corner: its text must have drawn dark pixels there.
+  let dark = 0;
+  for (let y = 0; y < 30; y++) {
+    for (let x = 0; x < 200; x++) if (pixelAt(image, x, y)[0]! < 100) dark++;
+  }
+  expect(dark).toBeGreaterThan(0);
+});

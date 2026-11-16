@@ -27,7 +27,7 @@ test("stampAttribution does not throw when the stamp is wider than the canvas", 
   expect(() => stampAttribution(canvas)).not.toThrow();
 });
 
-test("stampAttribution rejects unsupported characters in custom text", () => {
-  const canvas = new Canvas(200, 100);
-  expect(() => stampAttribution(canvas, { text: "© Tiles #1" })).toThrow(/unsupported character/);
+test("stampAttribution accepts accented and symbol characters in custom text", () => {
+  const canvas = new Canvas(400, 100);
+  expect(() => stampAttribution(canvas, { text: "© IGN – Géoportail #1" })).not.toThrow();
 });
