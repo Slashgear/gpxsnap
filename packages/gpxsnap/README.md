@@ -107,6 +107,7 @@ For quick previews, scripts or CI, the package ships a `gpxsnap` command:
 bunx gpxsnap route.gpx -o route.png --width 1200 --height 630 --stats
 bunx gpxsnap route.gpx --no-tiles --background "#ffffff"   # offline, no basemap
 bunx gpxsnap route.gpx --stats-fields distance,movingTime,pace --elevation-profile
+bunx gpxsnap route.gpx --basemap esri-topo-relief                 # muted topo map with hillshade
 ```
 
 It maps flags onto the `renderGpx` options below (`--width`, `--height`,
@@ -131,6 +132,10 @@ Run `bunx gpxsnap --help` for the full list.
 | `markers`         | `boolean \| MarkersStyle`         | `true`                                           | start/end pins; `false` to omit                                                                                                                    |
 | `distanceMarkers` | `boolean \| DistanceMarkersStyle` | `false`                                          | tick marks every `interval` (default `5`) `unit` (default `"km"`) of real-world distance, perpendicular to the route                               |
 | `tileUrl`         | `string \| false`                 | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | any `{z}`/`{x}`/`{y}` XYZ template — see below for other styles; `false` skips tiles entirely (offline, no request; attribution then defaults off) |
+| `basemap`         | `string`                          | `undefined`                                      | keyless preset filling in `tileUrl`, `attribution`, `overlay`, `tileFade` and `maxZoom` — see [Basemap presets](#basemap-presets)                  |
+| `overlay`         | `OverlayLayer \| false`           | `undefined`                                      | second tile layer (e.g. hillshade) composited onto the map, see [Overlays](#overlays-and-softened-colors); `false` drops a preset's overlay        |
+| `tileFade`        | `number`                          | `0`                                              | 0-1, softens the map's colors (desaturated, lifted toward white) so the route stands out                                                           |
+| `maxZoom`         | `number`                          | `19`                                             | never frames the route closer than this zoom, for tile sources that stop early                                                                     |
 | `background`      | `string`                          | `"transparent"`                                  | hex color filling the canvas under everything; mostly useful with `tileUrl: false`                                                                 |
 | `pixelRatio`      | `number`                          | `1`                                              | output resolution multiplier (e.g. `2` for retina); same framing, `width * pixelRatio` x `height * pixelRatio` physical pixels — see below         |
 | `format`          | `"png" \| "webp" \| "jpeg"`       | `"png"`                                          | `webp`/`jpeg` need Bun (`Bun.Image`) — see below                                                                                                   |
@@ -334,7 +339,61 @@ cache is a few lines.
 Inputs are checked before any request: `width`/`height` must be integers from
 1 to 4096, the physical canvas (`* pixelRatio`) at most 8192 px per side, and
 the viewport may need at most `maxTiles` tiles. Each fetched tile must decode
-to a square PNG of the standard (256 px) or retina (`{r}`) size.
+to a square image of the standard (256 px) or retina (`{r}`) size. PNG tiles
+(8-bit, or 1/2/4-bit palette/grayscale) decode on every runtime; other formats
+such as JPEG are transcoded with Bun's built-in `Bun.Image`, so need Bun.
+
+### Basemap presets
+
+`basemap` picks a ready-made, keyless tile source and its required
+attribution. Anything you pass explicitly (`tileUrl`, `attribution`,
+`overlay`, `tileFade`, `maxZoom`) wins over the preset.
+
+| Preset             | Look                                                    | Notes                                  |
+| ------------------ | ------------------------------------------------------- | -------------------------------------- |
+| `osm`              | OpenStreetMap standard (same as the default)            |                                        |
+| `esri-topo`        | Esri World Topographic Map: pastel colors, light relief | JPEG tiles: Bun only                   |
+| `esri-topo-relief` | `esri-topo` + Esri hillshade, slightly softened colors  | JPEG tiles: Bun only                   |
+| `esri-light-gray`  | Esri Light Gray Canvas: minimal, no labels              | JPEG tiles: Bun only; up to zoom 16    |
+| `ign-plan`         | IGN's Plan IGN                                          | France only                            |
+| `ign-plan-relief`  | Plan IGN + IGN hillshade, softened colors               | France only; relief data up to zoom 15 |
+
+```ts
+const png = await renderGpx(gpxContents, { width: 1200, height: 630, basemap: "esri-topo-relief" });
+```
+
+Check each provider's terms before shipping: Esri's tile services answer
+without a key, but [Esri's terms](https://www.esri.com/en-us/legal/terms/full-master-agreement)
+expect an ArcGIS account for production use. IGN's Géoplateforme tiles are
+open data under the [Licence Ouverte Etalab 2.0](https://www.etalab.gouv.fr/licence-ouverte-open-licence/)
+and cover France (with its overseas territories) only.
+
+### Overlays and softened colors
+
+`overlay` composites a second tile layer onto each base tile, before the
+route is drawn. With `blend: "multiply"`, a grayscale hillshade darkens the
+map where there is relief and leaves it unchanged elsewhere:
+
+```ts
+const png = await renderRoute({
+  coordinates,
+  width: 1200,
+  height: 630,
+  tileUrl: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+  overlay: {
+    tileUrl:
+      "https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}",
+    blend: "multiply", // or "normal" (alpha-over) for transparent overlays such as trails
+    opacity: 0.45,
+    maxZoom: 16, // above this, the zoom-16 tile is cropped and smoothly upscaled
+  },
+  tileFade: 0.3, // 0-1: mute the base map's colors
+});
+```
+
+The overlay is best-effort: a tile it can't fetch or decode leaves the base
+map as is there. It doesn't count toward `maxTiles`, and needs at most as many
+requests as the base layer.
 
 ### Other tile styles
 
@@ -358,13 +417,12 @@ attribution: "© OpenStreetMap contributors - Map style: © CyclOSM",
 
 **Needs an API key/account** — bring your own, held by your own code (never
 commit a key, and note the attribution badge's font doesn't support every
-punctuation character — see `font.ts` — so keep `|` etc. out of custom
-attribution strings, as the two recipes above already do):
+character — see `font.ts` — so check accented letters in custom attribution
+strings):
 
-- [CARTO](https://carto.com/basemaps)'s Positron/Voyager tiles don't need an
-  API key to fetch, but their free tier is scoped to "CARTO grantees"
-  (nonprofit/education) — check their current terms before shipping it in a
-  product.
+- [CARTO](https://carto.com/basemaps)'s Positron/Voyager/Dark Matter tiles
+  now come back with an "API KEY REQUIRED" watermark when fetched without a
+  key.
 - [MapTiler](https://www.maptiler.com)'s "Topo" style is a clean alternative
   to OpenTopoMap; 100k map loads/month free, no credit card, but needs an
   account + API key.

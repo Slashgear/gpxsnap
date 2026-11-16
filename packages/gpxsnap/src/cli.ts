@@ -15,6 +15,7 @@ import { parseArgs } from "node:util";
 import { renderGpx } from "./gpx.ts";
 import type { RenderGpxOptions } from "./gpx.ts";
 import type { StatsField } from "./statistics.ts";
+import { BASEMAP_NAMES } from "./basemaps.ts";
 
 export const USAGE = `Usage: gpxsnap <input.gpx> [options]
 
@@ -29,7 +30,16 @@ Output
       --quality <1-100>      WebP/JPEG quality
 
 Map
+      --basemap <name>       Keyless tile preset: osm, esri-topo, esri-topo-relief,
+                             esri-light-gray, ign-plan, ign-plan-relief
+                             (esri-* need Bun; ign-* cover France only)
       --tile-url <template>  XYZ tile URL template (default: OpenStreetMap)
+      --overlay-url <tmpl>   Second tile layer drawn over the map (e.g. hillshade)
+      --overlay-opacity <n>  Overlay strength, 0-1 (default: 1)
+      --overlay-blend <mode> normal | multiply (multiply suits hillshade)
+      --no-overlay           Drop the preset's overlay
+      --tile-fade <n>        Soften the map's colors, 0-1 (default: 0)
+      --max-zoom <n>         Never frame the route closer than this zoom
       --no-tiles             Draw without any basemap (no network request)
       --background <color>   Hex background color, e.g. "#ffffff" (default: transparent)
       --attribution <text>   Attribution text for a non-OSM tile source
@@ -70,6 +80,7 @@ const STATS_FIELDS: readonly StatsField[] = [
 const FORMATS = ["png", "webp", "jpeg"] as const;
 type Format = (typeof FORMATS)[number];
 const COLOR_BY = ["length", "elevation", "speed"] as const;
+const OVERLAY_BLENDS = ["normal", "multiply"] as const;
 
 export interface CliInvocation {
   input: string;
@@ -125,7 +136,14 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation | null {
         "pixel-ratio": { type: "string" },
         format: { type: "string" },
         quality: { type: "string" },
+        basemap: { type: "string" },
         "tile-url": { type: "string" },
+        "overlay-url": { type: "string" },
+        "overlay-opacity": { type: "string" },
+        "overlay-blend": { type: "string" },
+        "no-overlay": { type: "boolean" },
+        "tile-fade": { type: "string" },
+        "max-zoom": { type: "string" },
         "no-tiles": { type: "boolean" },
         background: { type: "string" },
         attribution: { type: "string" },
@@ -207,6 +225,25 @@ export function parseCliArgs(argv: readonly string[]): CliInvocation | null {
   set("padding", toNumber("padding", values.padding));
   set("simplify", toNumber("simplify", values.simplify));
   set("tileUrl", values["no-tiles"] ? false : values["tile-url"]);
+  set("basemap", oneOf("basemap", values.basemap, BASEMAP_NAMES));
+  set("tileFade", toNumber("tile-fade", values["tile-fade"]));
+  set("maxZoom", toNumber("max-zoom", values["max-zoom"]));
+  const overlayBlend = oneOf("overlay-blend", values["overlay-blend"], OVERLAY_BLENDS);
+  const overlayOpacity = toNumber("overlay-opacity", values["overlay-opacity"]);
+  if (values["no-overlay"]) {
+    if (values["overlay-url"] !== undefined) {
+      throw new CliUsageError("--no-overlay and --overlay-url can't be combined");
+    }
+    options.overlay = false;
+  } else if (values["overlay-url"] !== undefined) {
+    options.overlay = {
+      tileUrl: values["overlay-url"],
+      opacity: overlayOpacity,
+      blend: overlayBlend,
+    };
+  } else if (overlayBlend !== undefined || overlayOpacity !== undefined) {
+    throw new CliUsageError("--overlay-opacity and --overlay-blend need --overlay-url");
+  }
   set("background", values.background);
   set("userAgent", values["user-agent"]);
   set("attribution", values.attribution);
