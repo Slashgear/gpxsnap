@@ -1,4 +1,4 @@
-import type { FetchLike } from "./tiles.ts";
+import type { FetchLike, TileCache } from "./tiles.ts";
 import type { StrokeStyle } from "./line.ts";
 import type { MarkersStyle } from "./markers.ts";
 import type { DistanceMarkersStyle } from "./distance-markers.ts";
@@ -75,6 +75,26 @@ export interface RenderRouteOptions {
   /** Sent as the tile request's User-Agent — OSM's tile usage policy requires one that identifies your app. */
   userAgent?: string;
   fetchImpl?: FetchLike;
+  /** Per-attempt tile request timeout in milliseconds. Defaults to `10000`. */
+  tileTimeoutMs?: number;
+  /** Extra attempts per tile after a network error, timeout, 429 or 5xx. Defaults to `2`. */
+  tileRetries?: number;
+  /**
+   * What to do when a tile still can't be fetched or decoded after retries:
+   * `"throw"` (default) fails the render, `"skip"` leaves that tile blank.
+   */
+  onTileError?: "throw" | "skip";
+  /**
+   * Where fetched tiles are stored and looked up, keyed by tile URL. OSM's
+   * tile usage policy asks clients to cache tiles: pass
+   * `createMemoryTileCache()` or your own `TileCache` (disk, Redis, ...).
+   */
+  tileCache?: TileCache;
+  /**
+   * Refuses to render when the viewport needs more tiles than this, before
+   * any request is made. Defaults to `100` (enough for ~2300x2300 px).
+   */
+  maxTiles?: number;
 }
 
 /**
@@ -92,3 +112,5 @@ export async function renderRoute(options: RenderRouteOptions): Promise<Uint8Arr
 }
 
 export type { DecodedImage } from "./png/decode.ts";
+export type { FetchLike, TileCache } from "./tiles.ts";
+export { createMemoryTileCache } from "./tiles.ts";

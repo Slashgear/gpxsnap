@@ -168,8 +168,47 @@ export class Semaphore {
 /** A minimal fetch-shaped function — deliberately narrower than `typeof fetch` so plain mocks satisfy it in tests without matching Bun/DOM's full fetch signature. */
 export type FetchLike = (
   url: string,
-  init?: { headers?: Record<string, string> },
+  init?: { headers?: Record<string, string>; signal?: AbortSignal },
 ) => Promise<Response>;
+
+/**
+ * A pluggable store for fetched tile bytes, keyed by the final tile URL.
+ * Both methods may be sync or async, so anything from a `Map` to a disk or
+ * Redis cache fits. OSM's tile usage policy asks clients to cache tiles
+ * rather than re-download them on every render.
+ */
+export interface TileCache {
+  get(url: string): Uint8Array | undefined | Promise<Uint8Array | undefined>;
+  set(url: string, bytes: Uint8Array): void | Promise<void>;
+}
+
+/** A simple in-memory LRU `TileCache`, bounded to `maxEntries` tiles (default 512). */
+export function createMemoryTileCache(maxEntries = 512): TileCache {
+  if (!Number.isInteger(maxEntries) || maxEntries < 1) {
+    throw new Error("maxEntries must be a positive integer");
+  }
+  const entries = new Map<string, Uint8Array>();
+  return {
+    get(url) {
+      const bytes = entries.get(url);
+      if (bytes) {
+        // Re-insert to mark as most recently used.
+        entries.delete(url);
+        entries.set(url, bytes);
+      }
+      return bytes;
+    },
+    set(url, bytes) {
+      entries.delete(url);
+      entries.set(url, bytes);
+      while (entries.size > maxEntries) {
+        const oldest = entries.keys().next().value;
+        if (oldest === undefined) break;
+        entries.delete(oldest);
+      }
+    },
+  };
+}
 
 export interface FetchTileOptions {
   tileUrlTemplate: string;
@@ -178,6 +217,74 @@ export interface FetchTileOptions {
   concurrency?: number;
   userAgent?: string;
   fetchImpl?: FetchLike;
+  /** Per-attempt timeout in milliseconds. Defaults to 10 000. */
+  timeoutMs?: number;
+  /** Extra attempts after a network error, timeout, 429 or 5xx (never after another 4xx). Defaults to 2. */
+  retries?: number;
+  /** Base delay before a retry, doubled on each further attempt. Defaults to 250. */
+  retryDelayMs?: number;
+  /** `"throw"` (default) fails the whole call on the first tile that can't be fetched; `"skip"` leaves it out of the result. */
+  onTileError?: "throw" | "skip";
+  tileCache?: TileCache;
+}
+
+export const DEFAULT_TILE_TIMEOUT_MS = 10_000;
+export const DEFAULT_TILE_RETRIES = 2;
+export const DEFAULT_TILE_RETRY_DELAY_MS = 250;
+
+/** An HTTP failure that retrying won't fix (a 4xx other than 429). */
+class PermanentTileError extends Error {}
+
+function isRetryableStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+function delay(ms: number): Promise<void> {
+  return ms > 0 ? new Promise((resolve) => setTimeout(resolve, ms)) : Promise.resolve();
+}
+
+async function fetchOnce(
+  doFetch: FetchLike,
+  url: string,
+  headers: Record<string, string>,
+  timeoutMs: number,
+  label: string,
+): Promise<Uint8Array> {
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  try {
+    const response = await Promise.race([
+      doFetch(url, { headers, signal: controller.signal }),
+      // A fetchImpl that ignores `signal` must still not hang the render.
+      new Promise<never>((_, reject) => {
+        controller.signal.addEventListener("abort", () =>
+          reject(new Error(`timed out after ${timeoutMs}ms`)),
+        );
+      }),
+    ]);
+    if (!response.ok) {
+      const message = `failed to fetch tile ${label}: ${response.status} ${response.statusText}`;
+      if (isRetryableStatus(response.status)) throw new Error(message);
+      throw new PermanentTileError(message);
+    }
+    return new Uint8Array(await response.arrayBuffer());
+  } catch (error) {
+    if (error instanceof PermanentTileError) throw error;
+    if (timedOut) throw new Error(`failed to fetch tile ${label}: timed out after ${timeoutMs}ms`);
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      reason.startsWith("failed to fetch tile")
+        ? reason
+        : `failed to fetch tile ${label}: ${reason}`,
+      { cause: error },
+    );
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function fetchTiles(
@@ -186,22 +293,48 @@ export async function fetchTiles(
 ): Promise<Map<string, Uint8Array>> {
   const semaphore = new Semaphore(options.concurrency ?? 8);
   const doFetch = options.fetchImpl ?? fetch;
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TILE_TIMEOUT_MS;
+  const retries = options.retries ?? DEFAULT_TILE_RETRIES;
+  const retryDelayMs = options.retryDelayMs ?? DEFAULT_TILE_RETRY_DELAY_MS;
+  const onTileError = options.onTileError ?? "throw";
+  const cache = options.tileCache;
+  if (!(timeoutMs > 0)) throw new Error("timeoutMs must be a positive number");
+  if (!Number.isInteger(retries) || retries < 0) {
+    throw new Error("retries must be a non-negative integer");
+  }
+
+  const headers: Record<string, string> = {};
+  if (options.userAgent) headers["User-Agent"] = options.userAgent;
   const results = new Map<string, Uint8Array>();
 
   await Promise.all(
     tiles.map((tile) =>
       semaphore.run(async () => {
+        const key = `${tile.z}/${tile.x}/${tile.y}`;
         const url = tileUrl(options.tileUrlTemplate, tile, options.pixelRatio);
-        const headers: Record<string, string> = {};
-        if (options.userAgent) headers["User-Agent"] = options.userAgent;
-        const response = await doFetch(url, { headers });
-        if (!response.ok) {
-          throw new Error(
-            `failed to fetch tile ${tile.z}/${tile.x}/${tile.y}: ${response.status} ${response.statusText}`,
-          );
+        const cached = cache ? await cache.get(url) : undefined;
+        if (cached) {
+          results.set(key, cached);
+          return;
         }
-        const bytes = new Uint8Array(await response.arrayBuffer());
-        results.set(`${tile.z}/${tile.x}/${tile.y}`, bytes);
+
+        let bytes: Uint8Array | undefined;
+        let lastError: unknown;
+        for (let attempt = 0; attempt <= retries && !bytes; attempt++) {
+          if (attempt > 0) await delay(retryDelayMs * 2 ** (attempt - 1));
+          try {
+            bytes = await fetchOnce(doFetch, url, headers, timeoutMs, key);
+          } catch (error) {
+            lastError = error;
+            if (error instanceof PermanentTileError) break;
+          }
+        }
+        if (!bytes) {
+          if (onTileError === "throw") throw lastError;
+          return;
+        }
+        results.set(key, bytes);
+        if (cache) await cache.set(url, bytes);
       }),
     ),
   );

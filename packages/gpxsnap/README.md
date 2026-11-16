@@ -122,6 +122,11 @@ tool for that.
 | `concurrency`     | `number`                          | `8`                                              | max simultaneous tile fetches                                                                                                              |
 | `userAgent`       | `string`                          | `gpxsnap (https://github.com/Slashgear/gpxsnap)` | sent on every tile request                                                                                                                 |
 | `fetchImpl`       | `FetchLike`                       | global `fetch`                                   | injection point for tests / custom networking                                                                                              |
+| `tileTimeoutMs`   | `number`                          | `10000`                                          | per-attempt timeout for each tile request                                                                                                  |
+| `tileRetries`     | `number`                          | `2`                                              | extra attempts after a network error, timeout, 429 or 5xx (other 4xx are not retried)                                                      |
+| `onTileError`     | `"throw" \| "skip"`               | `"throw"`                                        | `"skip"` leaves a tile that can't be fetched or decoded blank instead of failing the render                                                |
+| `tileCache`       | `TileCache`                       | `undefined` (none)                               | `{ get(url), set(url, bytes) }`, sync or async; `createMemoryTileCache(maxEntries?)` gives an in-memory LRU — see Legal                    |
+| `maxTiles`        | `number`                          | `100`                                            | refuses a render needing more tiles than this, before any request (100 covers ~2300x2300 px)                                               |
 
 ### `LineStyle` (the `line` option)
 
@@ -285,6 +290,25 @@ welcome, and attribution is required on every rendered image. Set
 `userAgent` to something that identifies your app, and for production use
 consider self-hosting tiles or a paid provider (MapTiler, Stadia,
 Thunderforest).
+
+The policy also asks clients to cache tiles instead of re-downloading them.
+gpxsnap has no cache of its own (it stays dependency-free and stateless), but
+`tileCache` plugs one in. Reuse one cache across renders:
+
+```ts
+import { createMemoryTileCache, renderRoute } from "gpxsnap";
+
+const tileCache = createMemoryTileCache(1000); // LRU, up to 1000 tiles in memory
+const png = await renderRoute({ coordinates, width: 1200, height: 630, tileCache });
+```
+
+Any object with `get(url)` / `set(url, bytes)` works, so a disk, Redis or S3
+cache is a few lines.
+
+Inputs are checked before any request: `width`/`height` must be integers from
+1 to 4096, the physical canvas (`* pixelRatio`) at most 8192 px per side, and
+the viewport may need at most `maxTiles` tiles. Each fetched tile must decode
+to a square PNG of the standard (256 px) or retina (`{r}`) size.
 
 ### Other tile styles
 
