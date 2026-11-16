@@ -33,8 +33,19 @@ export interface RenderRouteOptions {
   line?: LineStyle;
   /** Start/end route markers. Defaults to on; pass false to omit them. */
   markers?: boolean | MarkersStyle;
-  /** XYZ tile URL template, e.g. "https://tile.openstreetmap.org/{z}/{x}/{y}.png". */
-  tileUrl?: string;
+  /**
+   * XYZ tile URL template, e.g. "https://tile.openstreetmap.org/{z}/{x}/{y}.png".
+   * Pass `false` to skip tiles entirely: no network request is made and the
+   * route is drawn on `background` (transparent by default). Attribution
+   * then defaults off, since there's no map data to credit.
+   */
+  tileUrl?: string | false;
+  /**
+   * Hex color filling the canvas under everything (e.g. `"#ffffff"`), or
+   * `"transparent"` (the default). Mostly useful with `tileUrl: false`; with
+   * tiles it only shows through tiles skipped by `onTileError: "skip"`.
+   */
+  background?: string;
   /**
    * Stamp tile attribution on the output. Defaults to on with OSM's required
    * text; pass a string to use different wording for a non-OSM tile source,
