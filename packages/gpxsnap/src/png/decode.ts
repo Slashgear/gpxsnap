@@ -32,7 +32,9 @@ function readChunks(bytes: Uint8Array): Chunk[] {
   const chunks: Chunk[] = [];
   let offset = SIGNATURE.length;
   while (offset < bytes.length) {
+    if (offset + 8 > bytes.length) throw new Error("PNG is truncated: incomplete chunk header");
     const length = view.getUint32(offset);
+    if (offset + 12 + length > bytes.length) throw new Error("PNG is truncated: incomplete chunk");
     const type = String.fromCharCode(
       bytes[offset + 4]!,
       bytes[offset + 5]!,
@@ -79,6 +81,8 @@ function channelsForColorType(colorType: ColorType): number {
       return 2;
     case ColorType.Rgba:
       return 4;
+    default:
+      throw new Error(`unsupported PNG color type ${colorType as number}`);
   }
 }
 
@@ -196,15 +200,50 @@ async function inflate(data: Uint8Array<ArrayBuffer>): Promise<Uint8Array> {
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
+/** Upper bound on decoded pixels (width * height) unless the caller passes its own — 8192 x 8192, i.e. 256 MiB of RGBA. */
+export const DEFAULT_MAX_PNG_PIXELS = 8192 * 8192;
+
+export interface DecodePngOptions {
+  /**
+   * When set, the image must be square with a side in this list (e.g. `[256, 512]`
+   * for slippy-map tiles), checked from the IHDR before anything is allocated.
+   */
+  expectedSizes?: readonly number[];
+  /** Rejects images with more than this many pixels before allocating. Defaults to `DEFAULT_MAX_PNG_PIXELS`. */
+  maxPixels?: number;
+}
+
 /**
  * Decodes a non-interlaced, 8-bit-depth PNG (color type 0, 2, 3, 4, or 6) into raw RGBA8 pixels.
  * This covers every shape a slippy-map XYZ tile server emits.
  */
-export async function decodePng(bytes: Uint8Array): Promise<DecodedImage> {
+export async function decodePng(
+  bytes: Uint8Array,
+  options: DecodePngOptions = {},
+): Promise<DecodedImage> {
   const chunks = readChunks(bytes);
   const ihdrChunk = chunks.find((c) => c.type === "IHDR");
   if (!ihdrChunk) throw new Error("PNG missing IHDR chunk");
+  if (ihdrChunk.data.length < 13) throw new Error("PNG IHDR chunk is truncated");
   const ihdr = parseIhdr(ihdrChunk.data);
+
+  if (ihdr.width === 0 || ihdr.height === 0) {
+    throw new Error(`invalid PNG dimensions ${ihdr.width}x${ihdr.height}`);
+  }
+  if (
+    options.expectedSizes &&
+    !(ihdr.width === ihdr.height && options.expectedSizes.includes(ihdr.width))
+  ) {
+    throw new Error(
+      `unexpected PNG dimensions ${ihdr.width}x${ihdr.height}, expected a square tile of ${options.expectedSizes.join(" or ")} px`,
+    );
+  }
+  const maxPixels = options.maxPixels ?? DEFAULT_MAX_PNG_PIXELS;
+  if (ihdr.width * ihdr.height > maxPixels) {
+    throw new Error(
+      `PNG dimensions ${ihdr.width}x${ihdr.height} exceed the ${maxPixels}-pixel limit`,
+    );
+  }
 
   if (ihdr.bitDepth !== 8) {
     throw new Error(`unsupported PNG bit depth ${ihdr.bitDepth}, only 8-bit is supported`);
@@ -226,8 +265,14 @@ export async function decodePng(bytes: Uint8Array): Promise<DecodedImage> {
     idatOffset += c.data.length;
   }
 
-  const inflated = await inflate(idat);
   const channels = channelsForColorType(ihdr.colorType);
+  const inflated = await inflate(idat);
+  const expectedLength = (ihdr.width * channels + 1) * ihdr.height;
+  if (inflated.length < expectedLength) {
+    throw new Error(
+      `PNG image data is truncated: got ${inflated.length} bytes, expected ${expectedLength}`,
+    );
+  }
   const raw = unfilter(inflated, ihdr.width, ihdr.height, channels);
   const pixels = toRgba(
     raw,

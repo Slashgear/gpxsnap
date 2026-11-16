@@ -15,7 +15,7 @@ import {
   tilesForViewport,
   TILE_SIZE,
 } from "./tiles.ts";
-import type { FetchLike } from "./tiles.ts";
+import type { FetchLike, TileCache } from "./tiles.ts";
 import { strokePolyline, drawDot } from "./line.ts";
 import type { StrokeStyle } from "./line.ts";
 import { drawStartEndMarkers } from "./markers.ts";
@@ -64,6 +64,11 @@ export interface RenderPipelineOptions {
   concurrency?: number;
   userAgent?: string;
   fetchImpl?: FetchLike;
+  tileTimeoutMs?: number;
+  tileRetries?: number;
+  onTileError?: "throw" | "skip";
+  tileCache?: TileCache;
+  maxTiles?: number;
   /**
    * Output resolution multiplier — the geographic framing stays identical to
    * `pixelRatio: 1` (same zoom/bounds), but the canvas and every drawn
@@ -114,6 +119,19 @@ const DEFAULT_USER_AGENT = "gpxsnap (https://github.com/Slashgear/gpxsnap)";
 /** Cycled per track when a track has no explicit/embedded color of its own. Index 0 matches line.ts's own single-track default. */
 const DEFAULT_TRACK_COLORS = ["#E74C3C", "#3498DB", "#2ECC71", "#9B59B6", "#F39C12", "#1ABC9C"];
 
+/** Largest accepted `width`/`height`, in logical pixels. */
+export const MAX_DIMENSION = 4096;
+/** Largest accepted physical canvas side (`width * pixelRatio`, `height * pixelRatio`). */
+export const MAX_PHYSICAL_DIMENSION = 8192;
+/** Default cap on tiles fetched for one render — enough for ~2300x2300 px, and keeps a typo from hammering the tile server. */
+export const DEFAULT_MAX_TILES = 100;
+
+function assertDimension(name: string, value: number): void {
+  if (!Number.isInteger(value) || value < 1 || value > MAX_DIMENSION) {
+    throw new Error(`${name} must be an integer between 1 and ${MAX_DIMENSION}, got ${value}`);
+  }
+}
+
 const WAYPOINT_COLOR = "#3498DB";
 const WAYPOINT_RADIUS = 4;
 const WAYPOINT_OPACITY = 0.9;
@@ -124,9 +142,29 @@ export async function renderPipeline(
   options: RenderPipelineOptions,
 ): Promise<Uint8Array> {
   const { width, height } = options;
+  assertDimension("width", width);
+  assertDimension("height", height);
   const padding = options.padding ?? 40;
+  if (!(padding >= 0) || !Number.isFinite(padding)) {
+    throw new Error(`padding must be a non-negative number, got ${padding}`);
+  }
   const pixelRatio = options.pixelRatio ?? 1;
-  if (!(pixelRatio > 0)) throw new Error("pixelRatio must be a positive number");
+  if (!(pixelRatio > 0) || !Number.isFinite(pixelRatio)) {
+    throw new Error("pixelRatio must be a positive number");
+  }
+  if (
+    Math.round(width * pixelRatio) > MAX_PHYSICAL_DIMENSION ||
+    Math.round(height * pixelRatio) > MAX_PHYSICAL_DIMENSION
+  ) {
+    throw new Error(
+      `width/height * pixelRatio must not exceed ${MAX_PHYSICAL_DIMENSION} physical pixels per side`,
+    );
+  }
+  const maxTiles = options.maxTiles ?? DEFAULT_MAX_TILES;
+  if (!Number.isInteger(maxTiles) || maxTiles < 1) {
+    throw new Error("maxTiles must be a positive integer");
+  }
+  const onTileError = options.onTileError ?? "throw";
   const format = options.format ?? "png";
   if (format !== "png" && !isBunImageAvailable()) throw unsupportedFormatError(format);
 
@@ -137,6 +175,11 @@ export async function renderPipeline(
   const zoom = fitZoom(bounds, { width, height, padding });
   const origin = canvasOrigin(bounds, zoom, width, height);
   const tiles = tilesForViewport(origin, zoom, width, height);
+  if (tiles.length > maxTiles) {
+    throw new Error(
+      `this render needs ${tiles.length} tiles, more than maxTiles (${maxTiles}); use a smaller width/height or raise maxTiles`,
+    );
+  }
 
   const fetched = await fetchTiles(tiles, {
     tileUrlTemplate: options.tileUrl ?? DEFAULT_TILE_URL,
@@ -144,14 +187,33 @@ export async function renderPipeline(
     concurrency: options.concurrency,
     userAgent: options.userAgent ?? DEFAULT_USER_AGENT,
     fetchImpl: options.fetchImpl,
+    timeoutMs: options.tileTimeoutMs,
+    retries: options.tileRetries,
+    onTileError,
+    tileCache: options.tileCache,
   });
+
+  // A tile arrives either at the standard size or, from a `{r}` template, at
+  // its retina multiple. Anything else is a misbehaving server or a wrong URL.
+  const retinaMultiple = Math.round(pixelRatio);
+  const expectedTileSizes =
+    retinaMultiple >= 2 ? [TILE_SIZE, TILE_SIZE * retinaMultiple] : [TILE_SIZE];
 
   const canvas = new Canvas(Math.round(width * pixelRatio), Math.round(height * pixelRatio));
   const physicalTileSize = TILE_SIZE * pixelRatio;
   for (const tile of tiles) {
     const bytes = fetched.get(`${tile.z}/${tile.x}/${tile.y}`);
     if (!bytes) continue;
-    const decoded = await decodePng(bytes);
+    let decoded;
+    try {
+      decoded = await decodePng(bytes, { expectedSizes: expectedTileSizes });
+    } catch (error) {
+      if (onTileError === "skip") continue;
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new Error(`failed to decode tile ${tile.z}/${tile.x}/${tile.y}: ${reason}`, {
+        cause: error,
+      });
+    }
     // A genuine retina tile asset already arrives at physicalTileSize; a plain
     // one (e.g. the default OSM source, which has no `{r}` retina tiles) gets
     // upscaled so it still covers its full slot on the scaled-up canvas.
