@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { Canvas } from "../src/canvas.ts";
-import { drawText, measureText } from "../src/font.ts";
+import { drawText, hasGlyph, measureText } from "../src/font.ts";
 
 function isBlank(canvas: Canvas): boolean {
   return Array.from(canvas.pixels).every((v) => v === 0);
@@ -25,14 +25,57 @@ test("drawText renders nothing for an all-space string", () => {
   expect(isBlank(canvas)).toBe(true);
 });
 
-test("drawText throws a clear error on an unsupported character", () => {
-  const canvas = new Canvas(40, 10);
-  expect(() => drawText(canvas, "Hello @#", 0, 0)).toThrow(/unsupported character/);
+test("drawText never throws, drawing a visible box for a character with no glyph", () => {
+  const canvas = new Canvas(10, 10);
+  expect(() => drawText(canvas, "\u4e2d", 0, 0, { color: "#ffffff" })).not.toThrow();
+  expect(isBlank(canvas)).toBe(false);
+  expect(measureText("\u4e2d")).toEqual(measureText("A"));
+});
+
+test("drawText covers French accented letters, lower and upper case", () => {
+  for (const ch of "àâäçéèêëîïôöùûüÿœæÀÂÄÇÉÈÊËÎÏÔÖÙÛÜŸŒÆñ") expect(hasGlyph(ch)).toBe(true);
+  const canvas = new Canvas(400, 10);
+  drawText(canvas, "Sortie l'après-midi à Égletons", 0, 0, { color: "#ffffff" });
+  expect(isBlank(canvas)).toBe(false);
+});
+
+test("accented glyphs differ from their base letter", () => {
+  const render = (s: string) => {
+    const canvas = new Canvas(6, 7);
+    drawText(canvas, s, 0, 0, { color: "#ffffff" });
+    return Array.from(canvas.pixels).join(",");
+  };
+  expect(render("è")).not.toBe(render("e"));
+  expect(render("è")).not.toBe(render("é"));
+  expect(render("É")).not.toBe(render("E"));
+});
+
+test("decomposed (NFD) input renders exactly like its precomposed form", () => {
+  const render = (s: string) => {
+    const canvas = new Canvas(40, 7);
+    drawText(canvas, s, 0, 0, { color: "#ffffff" });
+    return Array.from(canvas.pixels).join(",");
+  };
+  expect(render("e\u0300te\u0301")).toBe(render("èté"));
+  expect(measureText("e\u0300")).toEqual(measureText("è"));
+});
+
+test("letters without a glyph fall back to their unaccented form", () => {
+  const render = (s: string) => {
+    const canvas = new Canvas(6, 7);
+    drawText(canvas, s, 0, 0, { color: "#ffffff" });
+    return Array.from(canvas.pixels).join(",");
+  };
+  expect(render("ł")).not.toBe(render("\u4e2d")); // not the box
+  expect(render("Ő")).toBe(render("O"));
+  expect(render("\u2019")).toBe(render("'"));
+  expect(render("\u2013")).toBe(render("-"));
 });
 
 test("drawText covers the full supported alphabet without throwing", () => {
   const canvas = new Canvas(2000, 20);
-  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ,.©0123456789+-'()!?:";
+  const alphabet =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ,.©0123456789+-'()!?:@#&_=*;<>[]°\"";
   expect(() => drawText(canvas, alphabet, 0, 0)).not.toThrow();
 });
 

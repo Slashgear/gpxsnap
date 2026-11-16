@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx creator="StravaGPX" version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+ <trk>
+  <name>Sortie l'après-midi</name>
+  <type>cycling</type>
+  <trkseg>
+   <trkpt lat="48.8530" lon="2.3491"><ele>35.2</ele></trkpt>
+   <trkpt lat="48.8592" lon="2.3376"><ele>36.0</ele></trkpt>
+   <trkpt lat="48.8738" lon="2.2951"><ele>40.1</ele></trkpt>
+   <trkpt lat="48.8867" lon="2.2986"><ele>42.5</ele></trkpt>
+  </trkseg>
+ </trk>
+</gpx>
