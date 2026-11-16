@@ -10,21 +10,69 @@ function isPng(bytes: Uint8Array): boolean {
 }
 
 /**
+ * The slice of the browser's image APIs used to decode non-PNG tiles. Typed
+ * here rather than through the DOM lib, which this package doesn't load.
+ */
+interface BrowserImageApis {
+  createImageBitmap(blob: Blob): Promise<{ width: number; height: number; close(): void }>;
+  OffscreenCanvas: new (
+    width: number,
+    height: number,
+  ) => {
+    getContext(type: "2d"): {
+      drawImage(image: unknown, x: number, y: number): void;
+      getImageData(x: number, y: number, w: number, h: number): { data: Uint8ClampedArray };
+    } | null;
+  };
+}
+
+function browserImageApis(): BrowserImageApis | undefined {
+  const g = globalThis as Partial<BrowserImageApis>;
+  return typeof g.createImageBitmap === "function" && typeof g.OffscreenCanvas === "function"
+    ? (g as BrowserImageApis)
+    : undefined;
+}
+
+/** Decodes any image format the browser can read, through `createImageBitmap` and an `OffscreenCanvas`. */
+async function decodeWithBrowser(
+  apis: BrowserImageApis,
+  bytes: Uint8Array,
+  expectedSizes: readonly number[],
+): Promise<DecodedImage> {
+  const bitmap = await apis.createImageBitmap(new Blob([bytes as Uint8Array<ArrayBuffer>]));
+  try {
+    const { width, height } = bitmap;
+    if (!(width === height && expectedSizes.includes(width))) {
+      throw new Error(
+        `unexpected tile dimensions ${width}x${height}, expected a square tile of ${expectedSizes.join(" or ")} px`,
+      );
+    }
+    const context = new apis.OffscreenCanvas(width, height).getContext("2d");
+    if (!context) throw new Error("no 2D canvas context available to decode the tile");
+    context.drawImage(bitmap, 0, 0);
+    return { width, height, pixels: context.getImageData(0, 0, width, height).data };
+  } finally {
+    bitmap.close();
+  }
+}
+
+/**
  * Decodes a fetched tile. PNG goes through the package's own decoder on
- * every runtime; anything else (e.g. Esri's JPEG tiles) is transcoded to PNG
- * by Bun's built-in `Bun.Image` first, so it only works on Bun.
+ * every runtime. Anything else (e.g. Esri's JPEG tiles) needs a native
+ * decoder: Bun's built-in `Bun.Image`, or the browser's own image decoding.
+ * Node and Deno have neither, so they only read PNG tiles.
  */
 export async function decodeTile(
   bytes: Uint8Array,
   expectedSizes: readonly number[],
 ): Promise<DecodedImage> {
   if (isPng(bytes)) return decodePng(bytes, { expectedSizes });
-  if (!isBunImageAvailable()) {
-    throw new Error(
-      "tile is not a PNG (e.g. JPEG); decoding non-PNG tiles needs Bun's built-in Bun.Image",
-    );
+  if (isBunImageAvailable()) {
+    return decodePng(await transcodeToPngWithBunImage(bytes), { expectedSizes });
   }
-  return decodePng(await transcodeToPngWithBunImage(bytes), { expectedSizes });
+  const browser = browserImageApis();
+  if (browser) return decodeWithBrowser(browser, bytes, expectedSizes);
+  throw new Error("tile is not a PNG (e.g. JPEG); decoding non-PNG tiles needs Bun or a browser");
 }
 
 /**
