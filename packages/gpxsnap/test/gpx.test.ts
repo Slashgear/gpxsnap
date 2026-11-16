@@ -166,3 +166,28 @@ test("renderGpx stats badge honors a custom style", async () => {
 
   expect(Array.from(defaultStyle)).not.toEqual(Array.from(customStyle));
 });
+
+test("renderGpx stats badge renders every statsField (all glyphs supported)", async () => {
+  const gpx = `<gpx><trk><trkseg>
+    <trkpt lat="48.85" lon="2.35"><ele>40</ele><time>2026-01-01T10:00:00Z</time></trkpt>
+    <trkpt lat="48.86" lon="2.35"><ele>60</ele><time>2026-01-01T10:05:00Z</time></trkpt>
+    <trkpt lat="48.87" lon="2.35"><ele>50</ele><time>2026-01-01T10:10:00Z</time></trkpt>
+  </trkseg></trk></gpx>`;
+  const base = { width: 600, height: 200, stats: true, fetchImpl: mockFetch } as const;
+  const defaults = await renderGpx(gpx, base);
+  const allFields = await renderGpx(gpx, {
+    ...base,
+    statsFields: [
+      "distance",
+      "elevation",
+      "elevationRange",
+      "grade",
+      "duration",
+      "movingTime",
+      "speed",
+      "pace",
+    ],
+  });
+
+  expect(Array.from(allFields)).not.toEqual(Array.from(defaults));
+});
